@@ -1,0 +1,13 @@
+{
+    "name": "online-learning-platform",
+    "private": true,
+    "scripts": {
+        "client": "npm --prefix client run dev",
+        "server": "npm --prefix server run dev",
+        "dev": "npm-run-all --parallel client server"
+    },
+    "devDependencies": {
+        "npm-run-all": "^4.1.5",
+        "tsx": "^4.20.6"
+    }
+}
