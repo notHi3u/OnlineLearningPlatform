@@ -17,6 +17,9 @@ import TeacherCourses from "./pages/teacher/TeacherCourses";
 import EditCourse from "./pages/courses/EditCourse";
 import Sidebar from "./components/shared/Sidebar";
 import { useAuth } from "./store/auth";
+import AdminPendingCourses from "./pages/admin/AdminPendingCourses";
+import AdminDeniedCourses from "./pages/admin/AdminDeniedCourses";
+import AdminUsers from "./pages/admin/AdminUsers";
 
 const Layout: React.FC = () => {
   const location = useLocation();
@@ -77,6 +80,33 @@ const Layout: React.FC = () => {
               element={
                 <ProtectedRoute role="admin">
                   <AdminDashboard />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/admin/courses/pending"
+              element={
+                <ProtectedRoute role="admin">
+                  <AdminPendingCourses />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/admin/courses/denied"
+              element={
+                <ProtectedRoute role="admin">
+                  <AdminDeniedCourses />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/admin/users"
+              element={
+                <ProtectedRoute role="admin">
+                  <AdminUsers />
                 </ProtectedRoute>
               }
             />

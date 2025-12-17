@@ -1,7 +1,9 @@
-// server/src/middlewares/auth.ts
 import type { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 
+/* =========================
+   AUTHENTICATE (REQUIRED)
+========================= */
 export const authenticate = (
   req: Request,
   res: Response,
@@ -31,7 +33,9 @@ export const authenticate = (
   }
 };
 
-// 👇 optional version
+/* =========================
+   AUTHENTICATE (OPTIONAL)
+========================= */
 export const authenticateOptional = (
   req: Request,
   _res: Response,
@@ -55,8 +59,22 @@ export const authenticateOptional = (
       role: payload.role,
     };
   } catch {
-    // ignore
+    // ignore invalid token
   }
 
+  next();
+};
+
+/* =========================
+   ADMIN ONLY
+========================= */
+export const isAdmin = (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  if (!req.user || req.user.role !== "admin") {
+    return res.status(403).json({ message: "Admin only" });
+  }
   next();
 };

@@ -20,6 +20,7 @@ interface Props {
   value: ExamQuestion[];
   onClose: () => void;
   onSave: (questions: ExamQuestion[]) => void;
+  readOnly?: boolean;
 }
 
 /* ================= COMPONENT ================= */
@@ -29,6 +30,7 @@ export default function ExamModal({
   value,
   onClose,
   onSave,
+  readOnly = false,
 }: Props) {
   const [questions, setQuestions] = useState<ExamQuestion[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -159,7 +161,6 @@ export default function ExamModal({
 
   const handleSave = () => {
     if (!validate()) return;
-
     onSave(questions);
     onClose();
   };
@@ -171,14 +172,16 @@ export default function ExamModal({
       <div className="bg-white w-full max-w-3xl rounded-xl shadow-xl p-6 space-y-4">
         {/* Header */}
         <div className="flex justify-between items-center">
-          <h2 className="text-lg font-semibold">Edit Exam Questions</h2>
+          <h2 className="text-lg font-semibold">
+            {readOnly ? "Exam Questions" : "Edit Exam Questions"}
+          </h2>
           <button type="button" onClick={onClose}>
             <FaTimes />
           </button>
         </div>
 
         {/* ERROR */}
-        {error && (
+        {error && !readOnly && (
           <div className="bg-red-100 text-red-700 px-4 py-2 rounded text-sm">
             {error}
           </div>
@@ -194,20 +197,24 @@ export default function ExamModal({
               {/* Question */}
               <div className="flex gap-2">
                 <input
-                  className="flex-1 border-b outline-none"
+                  disabled={readOnly}
+                  className="flex-1 border-b outline-none disabled:bg-transparent"
                   placeholder={`Question ${qi + 1}`}
                   value={q.question}
                   onChange={e =>
                     updateQuestion(q.tempId, e.target.value)
                   }
                 />
-                <button
-                  type="button"
-                  onClick={() => removeQuestion(q.tempId)}
-                  className="text-red-500"
-                >
-                  <FaTrash />
-                </button>
+
+                {!readOnly && (
+                  <button
+                    type="button"
+                    onClick={() => removeQuestion(q.tempId)}
+                    className="text-red-500"
+                  >
+                    <FaTrash />
+                  </button>
+                )}
               </div>
 
               {/* Options */}
@@ -219,6 +226,7 @@ export default function ExamModal({
                   >
                     <input
                       type="checkbox"
+                      disabled={readOnly}
                       checked={o.isCorrect}
                       onChange={e =>
                         updateOption(q.tempId, o.tempId, {
@@ -228,7 +236,8 @@ export default function ExamModal({
                     />
 
                     <input
-                      className="flex-1 border rounded px-2 py-1 text-sm"
+                      disabled={readOnly}
+                      className="flex-1 border rounded px-2 py-1 text-sm disabled:bg-gray-100"
                       placeholder={`Option ${oi + 1}`}
                       value={o.text}
                       onChange={e =>
@@ -238,25 +247,29 @@ export default function ExamModal({
                       }
                     />
 
-                    <button
-                      type="button"
-                      onClick={() =>
-                        removeOption(q.tempId, o.tempId)
-                      }
-                      className="text-red-500"
-                    >
-                      <FaTrash size={12} />
-                    </button>
+                    {!readOnly && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          removeOption(q.tempId, o.tempId)
+                        }
+                        className="text-red-500"
+                      >
+                        <FaTrash size={12} />
+                      </button>
+                    )}
                   </div>
                 ))}
 
-                <button
-                  type="button"
-                  onClick={() => addOption(q.tempId)}
-                  className="text-xs text-indigo-600"
-                >
-                  + Add option
-                </button>
+                {!readOnly && (
+                  <button
+                    type="button"
+                    onClick={() => addOption(q.tempId)}
+                    className="text-xs text-indigo-600"
+                  >
+                    + Add option
+                  </button>
+                )}
               </div>
             </div>
           ))}
@@ -264,13 +277,15 @@ export default function ExamModal({
 
         {/* Footer */}
         <div className="flex justify-between items-center pt-4">
-          <button
-            type="button"
-            onClick={addQuestion}
-            className="flex items-center gap-2 text-sm text-indigo-600"
-          >
-            <FaPlus /> Add question
-          </button>
+          {!readOnly && (
+            <button
+              type="button"
+              onClick={addQuestion}
+              className="flex items-center gap-2 text-sm text-indigo-600"
+            >
+              <FaPlus /> Add question
+            </button>
+          )}
 
           <div className="flex gap-3">
             <button
@@ -278,15 +293,18 @@ export default function ExamModal({
               onClick={onClose}
               className="px-4 py-2 border rounded text-sm"
             >
-              Cancel
+              Close
             </button>
-            <button
-              type="button"
-              onClick={handleSave}
-              className="px-4 py-2 bg-indigo-600 text-white rounded text-sm"
-            >
-              Save
-            </button>
+
+            {!readOnly && (
+              <button
+                type="button"
+                onClick={handleSave}
+                className="px-4 py-2 bg-indigo-600 text-white rounded text-sm"
+              >
+                Save
+              </button>
+            )}
           </div>
         </div>
       </div>

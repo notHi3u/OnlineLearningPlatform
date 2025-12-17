@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../../api/http";
 import { useAuth } from "../../store/auth";
+import ExamModal, { type ExamQuestion } from "../exam/ExamModal";
 
 /* ================= TYPES ================= */
 
@@ -39,16 +40,27 @@ interface Props {
 
 export default function CourseContent({ courseId, enrolled }: Props) {
   const { user } = useAuth();
+
   const [sections, setSections] = useState<Section[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // ✅ quyền xem content
+  /* ===== EXAM MODAL (VIEW ONLY) ===== */
+  const [activeExam, setActiveExam] = useState<{
+    examId: string;
+    questions: ExamQuestion[];
+  } | null>(null);
+
+  // quyền xem content
   const canViewContent =
     user?.role === "admin" ||
     user?.role === "teacher" ||
     enrolled;
 
-  /* ================= LOAD ================= */
+  // quyền xem câu hỏi exam
+  const canViewExamQuestions =
+    user?.role === "admin" || user?.role === "teacher";
+
+  /* ================= LOAD CONTENT ================= */
   useEffect(() => {
     if (!courseId) return;
 
@@ -66,8 +78,27 @@ export default function CourseContent({ courseId, enrolled }: Props) {
     load();
   }, [courseId]);
 
+  /* ================= LOAD EXAM QUESTIONS ================= */
+  const openExamQuestions = async (examId: string) => {
+    try {
+      const res = await api.get(`/exams/${examId}/questions`);
+      setActiveExam({
+        examId,
+        questions: res.data || [],
+      });
+    } catch (err) {
+      console.error("Load exam questions error:", err);
+    }
+  };
+
+  /* ================= UI ================= */
+
   if (loading) {
-    return <p className="mt-6 text-sm text-gray-500">Loading content...</p>;
+    return (
+      <p className="mt-6 text-sm text-gray-500">
+        Loading content...
+      </p>
+    );
   }
 
   if (!sections.length) {
@@ -104,10 +135,11 @@ export default function CourseContent({ courseId, enrolled }: Props) {
                     </div>
 
                     <div className="text-xs text-gray-500 mt-0.5">
-                      {item.lessonType === "video" ? "🎥 Video" : "📄 PDF"}
+                      {item.lessonType === "video"
+                        ? "🎥 Video"
+                        : "📄 PDF"}
                     </div>
 
-                    {/* ✅ LINK / LOCK */}
                     {item.contentUrl ? (
                       canViewContent ? (
                         <a
@@ -150,6 +182,18 @@ export default function CourseContent({ courseId, enrolled }: Props) {
                     </p>
                   )}
 
+                  {/* VIEW QUESTIONS (admin + owner) */}
+                  {canViewExamQuestions && (
+                    <button
+                      type="button"
+                      onClick={() => openExamQuestions(item.id)}
+                      className="mt-2 text-xs text-indigo-600 underline"
+                    >
+                      View questions
+                    </button>
+                  )}
+
+                  {/* START EXAM (student) */}
                   {enrolled ? (
                     <button
                       type="button"
@@ -168,6 +212,17 @@ export default function CourseContent({ courseId, enrolled }: Props) {
           </div>
         </div>
       ))}
+
+      {/* ===== EXAM MODAL (READ ONLY) ===== */}
+      {activeExam && (
+        <ExamModal
+          open
+          value={activeExam.questions}
+          readOnly
+          onClose={() => setActiveExam(null)}
+          onSave={() => {}}
+        />
+      )}
     </div>
   );
 }

@@ -15,7 +15,8 @@ interface Course {
     name: string;
     email: string;
   };
-  isPublished: boolean;
+  isPublished: boolean; // backend dùng
+  publishStatus: "draft" | "pending" | "approved" | "denied";
 }
 
 const CourseDetail: React.FC = () => {
@@ -68,19 +69,17 @@ const CourseDetail: React.FC = () => {
 
   /* ================= PERMISSION ================= */
   const isOwner =
-    user?.role === "teacher" &&
-    course?.teacher &&
-    course.teacher._id === user.id;
+  user?.role === "teacher" &&
+  course?.teacher?._id === user.id;
 
-  const canEnroll =
-    user &&
-    user.role === "student";
+  const canEnroll = user && user.role === "student";
 
-  const canEdit =
-    user &&
-    (user.role === "admin" ||
-      (user.role === "teacher" && isOwner));
 
+  const isApproved = course?.publishStatus === "approved";
+  const isPending = course?.publishStatus === "pending";
+  const canEdit = isOwner && !isApproved && !isPending;
+
+  const isAdmin = user?.role === "admin";
   /* ================= ACTIONS ================= */
   const handleEnroll = async () => {
     if (!user) return navigate("/login");
@@ -139,6 +138,141 @@ const CourseDetail: React.FC = () => {
     }
   };
 
+  /* ================= OWNER ACTIONS ================= */
+
+  const handleRequestPublish = async () => {
+    if (!course) return;
+
+    try {
+      await api.put(`/courses/${course._id}/request-publish`);
+      showDialog({
+        title: "Request sent",
+        message: "Course sent for admin approval.",
+        variant: "success",
+      });
+      loadCourse();
+    } catch {
+      showDialog({
+        title: "Error",
+        message: "Failed to request approval.",
+        variant: "error",
+      });
+    }
+  };
+
+  const handleSetDraft = async () => {
+    if (!course) return;
+
+    showDialog({
+      title: "Set course to draft",
+      message: "This will allow editing and require re-approval. Continue?",
+      variant: "warning",
+      confirmLabel: "Set to draft",
+      onConfirm: async () => {
+        try {
+          await api.put(`/courses/${course._id}/set-draft`);
+          showDialog({
+            title: "Updated",
+            message: "Course is now draft and editable.",
+            variant: "success",
+          });
+          loadCourse();
+        } catch {
+          showDialog({
+            title: "Error",
+            message: "Failed to update course status.",
+            variant: "error",
+          });
+        }
+      },
+    });
+  };
+
+
+  /* ================= ADMIN ACTIONS ================= */
+  const handleApprove = () => {
+    showDialog({
+      title: "Approve course",
+      message: "Approve this course for publishing?",
+      variant: "warning",
+      confirmLabel: "Approve",
+      onConfirm: async () => {
+        await api.put(`/admin/courses/${id}/approve`);
+        showDialog({
+          title: "Approved",
+          message: "Course has been approved.",
+          variant: "success",
+        });
+        loadCourse();
+      },
+    });
+  };
+
+  const handleDeny = (id: string) => {
+      showDialog({
+        title: "Deny course",
+        message: "Please provide a reason for denial.",
+        variant: "warning",
+        input: {
+          placeholder: "Reason (required)",
+          required: true,
+        },
+        confirmLabel: "Deny",
+        onConfirm: async (reason) => {
+          await api.put(`/admin/courses/${id}/deny`, { reason });
+          showDialog({
+            title: "Denied",
+            message: "Course has been denied.",
+            variant: "info",
+          });
+          
+          loadCourse();
+        },
+      });
+    };
+
+    const handleRemove = (id: string) => {
+      showDialog({
+        title: "Remove course",
+        message: "Please provide a reason for Removal",
+        variant: "warning",
+        input: {
+          placeholder: "Reason (required)",
+          required: true,
+        },
+        confirmLabel: "Deny",
+        onConfirm: async (reason) => {
+          await api.put(`/admin/courses/${id}/deny`, { reason });
+          showDialog({
+            title: "Remove",
+            message: "Course has been removed from public.",
+            variant: "info",
+          });
+          
+          loadCourse();
+        },
+      });
+    };
+
+    const handleDelete = (id: string) => {
+      showDialog({
+        title: "Delete course",
+        message: "This action cannot be undone. Delete this course?",
+        variant: "error",
+        confirmLabel: "Delete",
+        cancelLabel: "Cancel",
+        onConfirm: async () => {
+          await api.delete(`/courses/${id}`);
+          showDialog({
+            title: "Deleted",
+            message: "Course has been deleted.",
+            variant: "success",
+          });
+          navigate("/admin/courses/denied");
+        },
+      });
+    };
+
   /* ================= UI ================= */
   if (loading) {
     return (
@@ -187,22 +321,31 @@ const CourseDetail: React.FC = () => {
           )}
         </div>
 
-
         {/* Content */}
         <div className="p-6 space-y-4">
           <h1 className="text-3xl font-bold">{course.title}</h1>
 
           <div className="flex items-center gap-3">
-            {/* ✅ chỉ owner teacher mới thấy Published/Draft */}
+            {/* 🔥 STATUS BADGE */}
             {(isOwner || user?.role === "admin") && (
               <span
                 className={`px-3 py-1 rounded-full text-sm font-semibold ${
-                  course.isPublished
+                  course.publishStatus === "approved"
                     ? "bg-green-100 text-green-700"
+                    : course.publishStatus === "pending"
+                    ? "bg-orange-100 text-orange-700"
+                    : course.publishStatus === "denied"
+                    ? "bg-red-100 text-red-700"
                     : "bg-yellow-100 text-yellow-700"
                 }`}
               >
-                {course.isPublished ? "Published" : "Draft"}
+                {course.publishStatus === "approved"
+                  ? "Published"
+                  : course.publishStatus === "pending"
+                  ? "Pending approval"
+                  : course.publishStatus === "denied"
+                  ? "Denied"
+                  : "Draft"}
               </span>
             )}
 
@@ -220,7 +363,7 @@ const CourseDetail: React.FC = () => {
 
           {/* ACTIONS */}
           <div className="pt-4 flex gap-3">
-            {canEnroll && (
+            {canEnroll && course.publishStatus === "approved" && (
               enrolled ? (
                 <button
                   onClick={handleUnenroll}
@@ -239,6 +382,51 @@ const CourseDetail: React.FC = () => {
               )
             )}
 
+            {/* ADMIN ACTIONS */}
+            {isAdmin && (
+              <>
+                {/* PENDING + DENIED */}
+                {["pending", "denied"].includes(course.publishStatus) && (
+                  <>
+                    <button
+                      onClick={handleApprove}
+                      className="px-5 py-2 bg-green-600 text-white rounded-lg"
+                    >
+                      Approve
+                    </button>
+
+                    <button
+                      onClick={() => handleDeny(course._id)}
+                      className="px-5 py-2 bg-red-500 text-white rounded-lg"
+                    >
+                      Deny
+                    </button>
+                  </>
+                )}
+
+                {/* APPROVED */}
+                {course.publishStatus === "approved" && (
+                  <button
+                    onClick={() => handleRemove(course._id)}
+                    className="px-5 py-2 bg-red-500 text-white rounded-lg"
+                  >
+                    Remove
+                  </button>
+                )}
+
+                {/* DENIED */}
+                {course.publishStatus === "denied" && (
+                  <button
+                    onClick={() => handleDelete(course._id)}
+                    className="px-5 py-2 bg-red-700 text-white rounded-lg"
+                  >
+                    Delete
+                  </button>
+                )}
+              </>
+            )}
+
+            {/* EDIT */}
             {canEdit && (
               <button
                 onClick={() => navigate(`/courses/${course._id}/edit`)}
@@ -247,10 +435,34 @@ const CourseDetail: React.FC = () => {
                 Edit Course
               </button>
             )}
+
+            {/* REQUEST APPROVAL */}
+            {isOwner &&
+              (course.publishStatus === "draft" ||
+                course.publishStatus === "denied") && (
+                <button
+                  onClick={handleRequestPublish}
+                  className="px-5 py-2 border border-orange-500 text-orange-600 rounded-lg hover:bg-orange-50"
+                >
+                  Request approval
+                </button>
+            )}
+
+            {/* SET DRAFT */}
+            {isOwner && course.publishStatus === "approved" && (
+              <button
+                onClick={handleSetDraft}
+                className="px-5 py-2 border border-orange-500 text-orange-600 rounded-lg hover:bg-orange-50"
+              >
+                Set to draft
+              </button>
+            )}
+
           </div>
+          {/* CONTENT */}
           <CourseContent
-           courseId={course._id}
-           enrolled={enrolled}
+            courseId={course._id}
+            enrolled={enrolled}
           />
         </div>
       </div>

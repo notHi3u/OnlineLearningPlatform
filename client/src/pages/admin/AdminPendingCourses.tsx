@@ -11,21 +11,26 @@ interface Course {
   title: string;
   description: string;
   thumbnail?: string;
-  isPublished: boolean;
-  publishStatus: "draft" | "pending" | "approved" | "denied";
+  publishStatus: "pending" | "approved" | "denied" | "draft";
+  teacher?: {
+    _id: string;
+    name: string;
+    email: string;
+  };
 }
 
-const TeacherCourses: React.FC = () => {
+const AdminPendingCourses: React.FC = () => {
   const { user } = useAuth();
   const { showDialog } = useDialog();
   const navigate = useNavigate();
 
-  const [data, setData] = useState<PaginatedResponse<Course> | null>(null);
+  const [data, setData] =
+    useState<PaginatedResponse<Course> | null>(null);
   const [loading, setLoading] = useState(true);
   const [keyword, setKeyword] = useState("");
 
+  /* ================= LOAD ================= */
   const load = async (page: number, q = "") => {
-    if (!user?.id) return;
     setLoading(true);
     try {
       const result = await fetchPaginated<Course>(
@@ -33,7 +38,8 @@ const TeacherCourses: React.FC = () => {
         page,
         10,
         {
-          teacherId: user.id,
+          isPublished: "false",
+          publishStatus: "pending", // 🔥 filter cứng
           ...(q ? { q } : {}),
         }
       );
@@ -42,7 +48,7 @@ const TeacherCourses: React.FC = () => {
       console.error(err);
       showDialog({
         title: "Error",
-        message: "Failed to load your courses.",
+        message: "Failed to load pending courses.",
         variant: "error",
       });
     } finally {
@@ -51,29 +57,30 @@ const TeacherCourses: React.FC = () => {
   };
 
   useEffect(() => {
-    if (user?.id) load(1);
-  }, [user?.id]);
+    if (user?.role === "admin") load(1);
+  }, [user?.role]);
 
-  const handleDelete = (id: string) => {
+  /* ================= ACTIONS ================= */
+  const handleApprove = async (id: string) => {
     showDialog({
-      title: "Delete course",
-      message: "Are you sure you want to delete this course?",
+      title: "Approve course",
+      message: "Approve this course for publishing?",
       variant: "warning",
-      confirmLabel: "Delete",
+      confirmLabel: "Approve",
       cancelLabel: "Cancel",
       onConfirm: async () => {
         try {
-          await api.delete(`/courses/${id}`);
+          await api.put(`/admin/courses/${id}/approve`);
           showDialog({
-            title: "Deleted",
-            message: "Course has been deleted.",
+            title: "Approved",
+            message: "Course approved successfully.",
             variant: "success",
           });
           load(data?.page || 1, keyword);
         } catch {
           showDialog({
             title: "Error",
-            message: "Failed to delete course.",
+            message: "Failed to approve course.",
             variant: "error",
           });
         }
@@ -81,10 +88,33 @@ const TeacherCourses: React.FC = () => {
     });
   };
 
-  if (!user?.id) {
+  const handleDeny = (id: string) => {
+    showDialog({
+      title: "Deny course",
+      message: "Please provide a reason for denial.",
+      variant: "warning",
+      input: {
+        placeholder: "Reason (required)",
+        required: true,
+      },
+      confirmLabel: "Deny",
+      onConfirm: async (reason) => {
+        await api.put(`/admin/courses/${id}/deny`, { reason });
+        showDialog({
+          title: "Denied",
+          message: "Course has been denied.",
+          variant: "info",
+        });
+        load(data?.page || 1);
+      },
+    });
+  };
+  
+  /* ================= GUARD ================= */
+  if (!user || user.role !== "admin") {
     return (
       <div className="flex justify-center items-center min-h-screen text-gray-600">
-        You must be logged in as a teacher.
+        Admin access only.
       </div>
     );
   }
@@ -92,26 +122,19 @@ const TeacherCourses: React.FC = () => {
   if (loading || !data) {
     return (
       <div className="flex justify-center items-center min-h-screen text-gray-600">
-        Loading your courses...
+        Loading pending courses...
       </div>
     );
   }
 
+  /* ================= UI ================= */
   return (
     <div className="max-w-6xl mx-auto px-6 py-10">
       {/* HEADER */}
       <div className="flex flex-col gap-6 mb-8">
-        <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold text-gray-800">
-            Manage Courses
-          </h1>
-          <button
-            onClick={() => navigate("/courses/new")}
-            className="px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700"
-          >
-            + Create Course
-          </button>
-        </div>
+        <h1 className="text-3xl font-bold text-gray-800">
+          Pending Course Approvals
+        </h1>
 
         {/* SEARCH */}
         <div className="w-full max-w-sm relative">
@@ -119,7 +142,7 @@ const TeacherCourses: React.FC = () => {
             value={keyword}
             onChange={(e) => setKeyword(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && load(1, keyword)}
-            placeholder="Search your courses..."
+            placeholder="Search course or teacher..."
             className="w-full px-4 pr-20 py-2 border rounded-full text-sm
                        focus:outline-none focus:ring-2 focus:ring-indigo-500"
           />
@@ -144,13 +167,14 @@ const TeacherCourses: React.FC = () => {
                 Course
               </th>
               <th className="px-4 py-3 text-left font-semibold text-gray-700">
-                Status
+                Teacher
               </th>
               <th className="px-4 py-3 text-right font-semibold text-gray-700">
                 Actions
               </th>
             </tr>
           </thead>
+
           <tbody>
             {data.items.map((course) => (
               <tr key={course._id} className="border-t">
@@ -175,47 +199,32 @@ const TeacherCourses: React.FC = () => {
                   </div>
                 </td>
 
-                <td className="px-4 py-3">
-                  <span
-                    className={`px-2 py-1 rounded text-xs font-semibold ${
-                      course.publishStatus === "approved"
-                        ? "bg-green-100 text-green-700"
-                        : course.publishStatus === "pending"
-                        ? "bg-orange-100 text-orange-700"
-                        : course.publishStatus === "denied"
-                        ? "bg-red-100 text-red-700"
-                        : "bg-yellow-100 text-yellow-700"
-                    }`}
-                  >
-                    {course.publishStatus}
-                  </span>
+                <td className="px-4 py-3 text-gray-700">
+                  {course.teacher?.name || "—"}
                 </td>
 
                 <td className="px-4 py-3 text-right space-x-2">
                   <button
-                    onClick={() => navigate(`/courses/${course._id}`)}
+                    onClick={() =>
+                      navigate(`/courses/${course._id}`)
+                    }
                     className="px-3 py-1 text-xs border rounded-lg hover:bg-gray-50"
                   >
                     View
                   </button>
 
-                  {/* ❌ HIDE EDIT WHEN PENDING */}
-                  {["draft", "denied"].includes(course.publishStatus) && (
-                    <button
-                      onClick={() =>
-                        navigate(`/courses/${course._id}/edit`)
-                      }
-                      className="px-3 py-1 text-xs border rounded-lg hover:bg-gray-50"
-                    >
-                      Edit
-                    </button>
-                  )}
+                  <button
+                    onClick={() => handleApprove(course._id)}
+                    className="px-3 py-1 text-xs rounded-lg bg-green-600 text-white hover:bg-green-700"
+                  >
+                    Approve
+                  </button>
 
                   <button
-                    onClick={() => handleDelete(course._id)}
+                    onClick={() => handleDeny(course._id)}
                     className="px-3 py-1 text-xs rounded-lg bg-red-500 text-white hover:bg-red-600"
                   >
-                    Delete
+                    Deny
                   </button>
                 </td>
               </tr>
@@ -223,8 +232,11 @@ const TeacherCourses: React.FC = () => {
 
             {data.items.length === 0 && (
               <tr>
-                <td colSpan={3} className="px-4 py-6 text-center text-gray-500">
-                  No courses found.
+                <td
+                  colSpan={3}
+                  className="px-4 py-6 text-center text-gray-500"
+                >
+                  No pending courses 🎉
                 </td>
               </tr>
             )}
@@ -242,7 +254,10 @@ const TeacherCourses: React.FC = () => {
           Prev
         </button>
 
-        {Array.from({ length: data.totalPages }, (_, i) => i + 1).map((p) => (
+        {Array.from(
+          { length: data.totalPages },
+          (_, i) => i + 1
+        ).map((p) => (
           <button
             key={p}
             onClick={() => load(p, keyword)}
@@ -268,4 +283,4 @@ const TeacherCourses: React.FC = () => {
   );
 };
 
-export default TeacherCourses;
+export default AdminPendingCourses;

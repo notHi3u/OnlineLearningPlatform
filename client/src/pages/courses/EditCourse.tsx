@@ -20,6 +20,7 @@ interface Course {
   description: string;
   thumbnail?: string;
   isPublished: boolean;
+  publishStatus: "draft" | "pending" | "approved" | "denied";
   teacher?: Teacher;
 }
 
@@ -32,7 +33,6 @@ const EditCourse: React.FC = () => {
   const [course, setCourse] = useState<Course | null>(null);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [isPublished, setIsPublished] = useState(false);
 
   const [thumbnailUrl, setThumbnailUrl] = useState<string>();
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
@@ -43,6 +43,14 @@ const EditCourse: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [forbidden, setForbidden] = useState(false);
+
+  const isOwner =
+    user?.role === "teacher" &&
+    course?.teacher?._id === user.id;
+  const isApproved = course?.publishStatus === "approved";
+  const isDraft = course?.publishStatus === "draft";
+  const isDenied = course?.publishStatus === "denied";
+  const canEditCourse = isOwner && (isDraft || isDenied);
 
   /* ================= LOAD COURSE ================= */
   const loadCourse = async () => {
@@ -59,7 +67,6 @@ const EditCourse: React.FC = () => {
       setCourse(data);
       setTitle(data.title);
       setDescription(data.description || "");
-      setIsPublished(data.isPublished);
       setThumbnailUrl(data.thumbnail);
   
       setContent(contentRes.data); // 🔥 SET BUILDER DATA
@@ -95,6 +102,61 @@ const EditCourse: React.FC = () => {
     setPreviewUrl(file ? URL.createObjectURL(file) : null);
   };
 
+  // const handleRequestPublish = async () => {
+  //   if (!id || !isOwner) return;
+  
+  //   try {
+  //     await api.put(`/courses/${id}/request-publish`);
+  
+  //     showDialog({
+  //       title: "Request sent",
+  //       message: "Your course has been sent for admin approval.",
+  //       variant: "success",
+  //     });
+  
+  //     loadCourse(); // reload để cập nhật publishStatus
+  //   } catch (err: any) {
+  //     showDialog({
+  //       title: "Error",
+  //       message:
+  //         err?.response?.data?.message ||
+  //         "Failed to request publish approval",
+  //       variant: "error",
+  //     });
+  //   }
+  // };
+
+  const handleSetDraft = async () => {
+    if (!id || !isOwner) return;
+  
+    showDialog({
+      title: "Set course to draft",
+      message: "This will allow editing and require re-approval. Continue?",
+      variant: "warning",
+      confirmLabel: "Set to draft",
+      onConfirm: async () => {
+        try {
+          await api.put(`/courses/${id}/set-draft`);
+  
+          showDialog({
+            title: "Updated",
+            message: "Course is now draft and editable.",
+            variant: "success",
+          });
+  
+          loadCourse();
+        } catch {
+          showDialog({
+            title: "Error",
+            message: "Failed to update course status.",
+            variant: "error",
+          });
+        }
+      },
+    });
+  };
+  
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!id || !course) return;
@@ -117,7 +179,7 @@ const EditCourse: React.FC = () => {
       const formData = new FormData();
       formData.append("title", title);
       formData.append("description", description);
-      formData.append("isPublished", String(isPublished));
+
   
       if (thumbnailFile) {
         formData.append("thumbnail", thumbnailFile);
@@ -179,16 +241,6 @@ const EditCourse: React.FC = () => {
           value={description}
           onChange={(e) => setDescription(e.target.value)}
         />
-
-        {/* Publish */}
-        <label className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            checked={isPublished}
-            onChange={(e) => setIsPublished(e.target.checked)}
-          />
-          Published
-        </label>
 
         {/* Thumbnail */}
         <div>
@@ -258,13 +310,31 @@ const EditCourse: React.FC = () => {
 
         {/* Actions */}
         <div className="flex justify-end gap-3">
-          <button
-            type="submit"
-            disabled={saving}
-            className="px-4 py-2 bg-indigo-600 text-white rounded-lg"
-          >
-            {saving ? "Saving..." : "Save changes"}
-          </button>
+          {/* APPROVED → SET DRAFT */}
+          {isOwner && isApproved &&  (
+            <button
+              type="button"
+              onClick={handleSetDraft}
+              className="px-4 py-2 border border-orange-500 text-orange-600
+                        rounded-lg hover:bg-orange-50"
+            >
+              Set to draft
+            </button>
+          )}
+
+          {/* EDIT MODE */}
+          {canEditCourse && (
+            <>
+              {/* SAVE */}
+              <button
+                type="submit"
+                disabled={saving}
+                className="px-4 py-2 bg-indigo-600 text-white rounded-lg"
+              >
+                {saving ? "Saving..." : "Save changes"}
+              </button>
+            </>
+          )}
         </div>
       </form>
     </div>

@@ -12,7 +12,8 @@ interface DialogState {
   title?: string;
   message?: string;
   variant?: DialogVariant;
-  onConfirm?: () => void;
+  input?: DialogInput;
+  onConfirm?: (value?: string) => void;
   onCancel?: () => void;
   confirmLabel?: string;
   cancelLabel?: string;
@@ -22,15 +23,23 @@ interface DialogOptions {
   title?: string;
   message: string;
   variant?: DialogVariant;
-  onConfirm?: () => void;
+  input?: DialogInput; // 👈 NEW
+  onConfirm?: (value?: string) => void;
   onCancel?: () => void;
   confirmLabel?: string;
   cancelLabel?: string;
 }
 
+
 interface DialogContextValue {
   showDialog: (options: DialogOptions) => void;
   hideDialog: () => void;
+}
+
+interface DialogInput {
+  placeholder?: string;
+  defaultValue?: string;
+  required?: boolean;
 }
 
 const DialogContext = createContext<DialogContextValue | undefined>(undefined);
@@ -51,12 +60,16 @@ export const DialogProvider: React.FC<React.PropsWithChildren> = ({
     variant: "info",
   });
 
+  const [inputValue, setInputValue] = useState("");
+
   const showDialog = useCallback((options: DialogOptions) => {
+    setInputValue(options.input?.defaultValue || "");
     setState({
       open: true,
       title: options.title,
       message: options.message,
       variant: options.variant ?? "info",
+      input: options.input,
       onConfirm: options.onConfirm,
       onCancel: options.onCancel,
       confirmLabel: options.confirmLabel,
@@ -66,23 +79,22 @@ export const DialogProvider: React.FC<React.PropsWithChildren> = ({
 
   const hideDialog = useCallback(() => {
     setState((prev) => ({ ...prev, open: false }));
+    setInputValue("");
   }, []);
 
   const handleConfirm = () => {
-    if (state.onConfirm) {
-      state.onConfirm();
+    if (state.input?.required && !inputValue.trim()) {
+      return;
     }
+    state.onConfirm?.(inputValue);
     hideDialog();
   };
 
   const handleCancel = () => {
-    if (state.onCancel) {
-      state.onCancel();
-    }
+    state.onCancel?.();
     hideDialog();
   };
 
-  // style theo variant nhẹ nhàng
   const variantColor =
     state.variant === "error"
       ? "border-red-500"
@@ -107,9 +119,20 @@ export const DialogProvider: React.FC<React.PropsWithChildren> = ({
               <h2 className="mb-2 text-lg font-semibold">{state.title}</h2>
             )}
 
-            <p className="mb-4 text-sm text-gray-700 whitespace-pre-line">
+            <p className="mb-3 text-sm text-gray-700 whitespace-pre-line">
               {state.message}
             </p>
+
+            {/* 🔥 INPUT */}
+            {state.input && (
+              <textarea
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                placeholder={state.input.placeholder}
+                rows={3}
+                className="mb-4 w-full rounded-md border px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500"
+              />
+            )}
 
             <div className="flex justify-end gap-2">
               {isConfirmMode ? (

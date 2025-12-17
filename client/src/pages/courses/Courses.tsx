@@ -9,6 +9,7 @@ interface Course {
   description: string;
   thumbnail?: string;
   teacher?: { name: string; email: string };
+  
   isPublished: boolean;
 }
 
@@ -25,8 +26,11 @@ const Courses: React.FC = () => {
       const result = await fetchPaginated<Course>(
         "/courses",
         page,
-        10,
-        q ? { q } : undefined
+        9,
+        {
+          publishStatus: "approved", // 🔥 filter ở backend
+          ...(q ? { q } : {}),
+        }
       );
 
       // ✅ chỉ lấy course đã published

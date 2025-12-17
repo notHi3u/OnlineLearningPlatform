@@ -10,6 +10,7 @@ import {
 } from "../utils/pagination.ts";
 import { canEditCourse } from "../middlewares/coursePermission.ts";
 import {authenticate, authenticateOptional} from "../middlewares/auth.ts";
+import { queryFilter } from "../utils/queryFilter.ts";
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
@@ -39,31 +40,29 @@ const uploadToCloudinary = async (file: Express.Multer.File) => {
 router.get("/", authenticateOptional, async (req: Request, res: Response) => {
   try {
     const { page, limit, skip } = getPaginationParams(req.query);
-    const q = (req.query.q as string)?.trim();
-
     const user = req.user;
     const role = user?.role;
 
-    const filter: any = {};
+    const filter = await queryFilter(req.query, {
+      // filter = ?publishStatus=pending
+      exactFields: ["publishStatus", "teacher", "isPublished"],
 
-    // guest + student chỉ thấy published
-    if (!user || role === "student") {
-      filter.isPublished = true;
-    }
+      // search = ?q=react
+      searchableFields: ["title", "description"],
 
-    if (q) {
-      const regex = new RegExp(q, "i");
-      const teacherIds = await mongoose
-        .model("User")
-        .find({ name: regex })
-        .distinct("_id");
+      // search teacher name
+      populateSearch: {
+        model: "User",
+        field: "teacher",
+        searchField: "name",
+      },
 
-      filter.$or = [
-        { title: regex },
-        { description: regex },
-        { teacher: { $in: teacherIds } },
-      ];
-    }
+      // default rule
+      defaultFilter:
+        !user || role === "student"
+          ? { isPublished: true }
+          : {},
+    });
 
     const [items, total] = await Promise.all([
       Course.find(filter)
@@ -156,7 +155,8 @@ router.post(
         title,
         description,
         teacher: user.id,
-        isPublished: isPublished === "true" || isPublished === true,
+        isPublished: false,
+        publishStatus: "draft",
         thumbnail,
         thumbnailPublicId,
       });
@@ -231,5 +231,93 @@ router.delete(
     }
   }
 );
+
+/* ==============================
+   PUT /api/courses/:id/request-publish
+   teacher request admin approve
+================================ */
+router.put(
+  "/:id/request-publish",
+  authenticate,
+  canEditCourse,
+  async (req: Request, res: Response) => {
+    try {
+      const course = await Course.findById(req.params.id);
+      if (!course) {
+        return res.status(404).json({ message: "Course not found" });
+      }
+
+      // ❌ đã approved thì không request nữa
+      if (course.publishStatus === "approved") {
+        return res
+          .status(400)
+          .json({ message: "Course already approved" });
+      }
+
+      course.publishStatus = "pending";
+      course.isPublished = false;
+
+      // optional: reset deny info
+      (course as any).publishDeniedReason = undefined;
+      (course as any).publishDeniedAt = undefined;
+
+      await course.save();
+
+      return res.json({
+        message: "Publish request sent",
+        publishStatus: course.publishStatus,
+      });
+    } catch (err) {
+      console.error(err);
+      return res
+        .status(500)
+        .json({ message: "Failed to request publish" });
+    }
+  }
+);
+
+/* ==============================
+   PUT /api/courses/:id/set-draft
+   owner / admin: approved -> draft
+================================ */
+router.put(
+  "/:id/set-draft",
+  authenticate,
+  canEditCourse,
+  async (req: Request, res: Response) => {
+    try {
+      const course = await Course.findById(req.params.id);
+      if (!course) {
+        return res.status(404).json({ message: "Course not found" });
+      }
+
+      if (course.publishStatus !== "approved") {
+        return res.status(400).json({
+          message: "Only approved courses can be set to draft",
+        });
+      }
+
+      course.publishStatus = "draft";
+      course.isPublished = false;
+
+      // optional: clear deny info
+      (course as any).publishDeniedReason = undefined;
+      (course as any).publishDeniedAt = undefined;
+
+      await course.save();
+
+      return res.json({
+        message: "Course set to draft",
+        publishStatus: course.publishStatus,
+      });
+    } catch (err) {
+      console.error(err);
+      return res
+        .status(500)
+        .json({ message: "Failed to set course to draft" });
+    }
+  }
+);
+
 
 export default router;

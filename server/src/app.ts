@@ -11,6 +11,9 @@ import sectionLessonRoutes from "./routes/sections.lessons.ts";
 import courseBuilderRoutes from "./routes/courses.builder.ts";
 import courseContentRoutes from "./routes/courses.content.ts";
 import examRoutes from "./routes/exams.ts";
+import adminCoursePublishRoutes from "./routes/admin.courses.publish.ts";
+import userRoutes from "./routes/users.ts";
+import adminUserRoutes from "./routes/admin.users.ts";
 
 const app = express();
 
@@ -38,5 +41,10 @@ app.use("/api/sections", sectionLessonRoutes);  // /sections/:id/lessons
 app.use("/api/courses", courseBuilderRoutes);   // /courses/:id/builder
 app.use("/api/courses", courseContentRoutes);
 app.use("/api/exams", examRoutes);
+
+// ✅ ADMIN
+app.use("/api/admin", adminCoursePublishRoutes);
+app.use("/api/users", userRoutes);          // self
+app.use("/api/admin/users", adminUserRoutes); // admin
 
 export default app;

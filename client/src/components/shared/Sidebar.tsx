@@ -1,3 +1,4 @@
+// client/src/components/layout/Sidebar.tsx
 import React, { useState } from "react";
 import { NavLink } from "react-router-dom";
 import { useAuth } from "../../store/auth";
@@ -15,74 +16,103 @@ type Role = "student" | "teacher" | "admin";
 
 interface MenuItem {
   label: string;
-  to: string;
+  to?: string;
   icon: React.ReactNode;
   roles: Role[];
+  children?: MenuItem[];
 }
 
 const MENU: MenuItem[] = [
-    // DASHBOARD
-    {
-      label: "Dashboard",
-      to: "/student/dashboard",
-      icon: <LayoutDashboard size={18} />,
-      roles: ["student"],
-    },
-    {
-      label: "Dashboard",
-      to: "/teacher/dashboard",
-      icon: <LayoutDashboard size={18} />,
-      roles: ["teacher"],
-    },
-    {
-      label: "Dashboard",
-      to: "/admin/dashboard",
-      icon: <LayoutDashboard size={18} />,
-      roles: ["admin"],
-    },
-  
-    // COURSES (public)
-    {
-      label: "Courses",
-      to: "/courses",
-      icon: <BookOpen size={18} />,
-      roles: ["student", "teacher", "admin"],
-    },
-  
-    // STUDENT
-    {
-      label: "My Courses",
-      to: "/student/courses",
-      icon: <GraduationCap size={18} />,
-      roles: ["student"],
-    },
-  
-    // TEACHER
-    {
-      label: "Manage Courses",
-      to: "/teacher/courses",
-      icon: <GraduationCap size={18} />,
-      roles: ["teacher"],
-    },
-  
-    // ADMIN
-    {
-      label: "Users",
-      to: "/admin/users",
-      icon: <Users size={18} />,
-      roles: ["admin"],
-    },
-    {
-      label: "Settings",
-      to: "/admin/settings",
-      icon: <Settings size={18} />,
-      roles: ["admin"],
-    },
-  ];  
+  // DASHBOARD
+  {
+    label: "Dashboard",
+    to: "/student/dashboard",
+    icon: <LayoutDashboard size={18} />,
+    roles: ["student"],
+  },
+  {
+    label: "Dashboard",
+    to: "/teacher/dashboard",
+    icon: <LayoutDashboard size={18} />,
+    roles: ["teacher"],
+  },
+  {
+    label: "Dashboard",
+    to: "/admin/dashboard",
+    icon: <LayoutDashboard size={18} />,
+    roles: ["admin"],
+  },
+
+  // PUBLIC COURSES
+  {
+    label: "Courses",
+    to: "/courses",
+    icon: <BookOpen size={18} />,
+    roles: ["student", "teacher"],
+  },
+
+  // STUDENT
+  {
+    label: "My Courses",
+    to: "/student/courses",
+    icon: <GraduationCap size={18} />,
+    roles: ["student"],
+  },
+
+  // TEACHER
+  {
+    label: "Manage Courses",
+    to: "/teacher/courses",
+    icon: <GraduationCap size={18} />,
+    roles: ["teacher"],
+  },
+
+  // ADMIN COURSES (SUB MENU)
+  {
+    label: "Courses",
+    icon: <BookOpen size={18} />,
+    roles: ["admin"],
+    children: [
+      {
+        label: "Public Courses",
+        to: "/courses",
+        icon: <BookOpen size={16} />,
+        roles: ["admin"],
+      },
+      {
+        label: "Pending Approval",
+        to: "/admin/courses/pending",
+        icon: <GraduationCap size={16} />,
+        roles: ["admin"],
+      },
+      {
+        label: "Denied Courses",
+        to: "/admin/courses/denied",
+        icon: <GraduationCap size={16} />,
+        roles: ["admin"],
+      },
+    ],
+  },
+
+  // ADMIN
+  {
+    label: "Users",
+    to: "/admin/users",
+    icon: <Users size={18} />,
+    roles: ["admin"],
+  },
+  {
+    label: "Settings",
+    to: "/admin/settings",
+    icon: <Settings size={18} />,
+    roles: ["admin"],
+  },
+];
 
 const Sidebar: React.FC = () => {
   const { user } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
+  const [openMenu, setOpenMenu] = useState<string | null>(null);
 
   if (!user) return null;
 
@@ -108,14 +138,10 @@ const Sidebar: React.FC = () => {
         )}
 
         <button
-          onClick={() => setCollapsed((v) => !v)}
+          onClick={() => setCollapsed(v => !v)}
           className="p-1 rounded hover:bg-gray-100"
         >
-          {collapsed ? (
-            <ChevronRight size={18} />
-          ) : (
-            <ChevronLeft size={18} />
-          )}
+          {collapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
         </button>
       </div>
 
@@ -126,29 +152,88 @@ const Sidebar: React.FC = () => {
         </p>
       )}
 
-      {/* MENU (scrollable) */}
+      {/* MENU */}
       <nav className="flex-1 overflow-y-auto px-2 space-y-1 pb-6">
-        {MENU.filter((m) => m.roles.includes(user.role)).map((item) => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            title={collapsed ? item.label : undefined}
-            className={({ isActive }) =>
+        {MENU.filter(m => m.roles.includes(user.role)).map(item => {
+          // ===== SUB MENU =====
+          if (item.children) {
+            const opened = openMenu === item.label;
+
+            return (
+              <div key={item.label}>
+                <button
+                  onClick={() =>
+                    setOpenMenu(opened ? null : item.label)
+                  }
+                  className={`
+                    flex items-center gap-3 px-3 py-2 w-full rounded-lg
+                    text-sm font-medium text-gray-700 hover:bg-gray-100
+                    ${collapsed ? "justify-center" : ""}
+                  `}
+                >
+                  {item.icon}
+                  {!collapsed && (
+                    <>
+                      <span className="flex-1 text-left">
+                        {item.label}
+                      </span>
+                      <ChevronRight
+                        size={14}
+                        className={`transition ${opened ? "rotate-90" : ""}`}
+                      />
+                    </>
+                  )}
+                </button>
+
+                {!collapsed && opened && (
+                  <div className="ml-6 mt-1 space-y-1">
+                    {item.children.map(child => (
+                      <NavLink
+                        key={child.to}
+                        to={child.to!}
+                        className={({ isActive }) =>
+                          `
+                          block px-3 py-2 rounded-lg text-sm
+                          ${
+                            isActive
+                              ? "bg-indigo-100 text-indigo-700"
+                              : "text-gray-600 hover:bg-gray-100"
+                          }
+                        `
+                        }
+                      >
+                        {child.label}
+                      </NavLink>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          }
+
+          // ===== NORMAL ITEM =====
+          return (
+            <NavLink
+              key={item.to}
+              to={item.to!}
+              className={({ isActive }) =>
+                `
+                flex items-center gap-3 px-3 py-2 rounded-lg
+                text-sm font-medium transition
+                ${
+                  isActive
+                    ? "bg-indigo-100 text-indigo-700"
+                    : "text-gray-700 hover:bg-gray-100"
+                }
+                ${collapsed ? "justify-center" : ""}
               `
-              flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition
-              ${
-                isActive
-                  ? "bg-indigo-100 text-indigo-700"
-                  : "text-gray-700 hover:bg-gray-100"
               }
-              ${collapsed ? "justify-center" : ""}
-            `
-            }
-          >
-            {item.icon}
-            {!collapsed && item.label}
-          </NavLink>
-        ))}
+            >
+              {item.icon}
+              {!collapsed && item.label}
+            </NavLink>
+          );
+        })}
       </nav>
     </aside>
   );
