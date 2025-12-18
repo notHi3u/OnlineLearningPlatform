@@ -11,7 +11,7 @@ export interface BuilderLesson {
   tempId: string;
   kind: "lesson";
   title: string;
-  lessonType: "video" | "pdf";
+  lessonType: "video" | "document";
   contentUrl?: string;
   order: number;
 }
@@ -24,8 +24,11 @@ export interface BuilderExam {
   title: string;
   description?: string;
   totalScore: number;
+  durationMinutes: number | null;
+  passPercent: number;
   order: number;
   questions: ExamQuestion[];
+  
 }
 
 /* ---------- UNION ---------- */
@@ -51,6 +54,7 @@ export interface ExamQuestion {
   tempId: string;
   question: string;
   options: ExamOption[];
+  score: number;
 }
 
 /* ================= HOOK ================= */
@@ -89,6 +93,7 @@ export function useCourseBuilder(
               res.data.map((q: any) => ({
                 tempId: crypto.randomUUID(),
                 question: q.question,
+                score: q.score,
                 options: q.options.map((o: any) => ({
                   tempId: crypto.randomUUID(),
                   text: o.text,
@@ -102,21 +107,31 @@ export function useCourseBuilder(
         for (const [ii, it] of (s.items ?? []).entries()) {
           /* ---------- EXAM ---------- */
           if (it.kind === "exam") {
+            const questions =
+              it.id ? examQuestionMap.get(it.id) ?? [] : [];
+        
+            const totalScore = questions.reduce(
+              (sum, q) => sum + (q.score ?? 0),
+              0
+            );
+        
             items.push({
               id: it.id,
               tempId: crypto.randomUUID(),
               kind: "exam",
               title: it.title,
               description: it.description,
-              totalScore: it.totalScore ?? 1,
+              totalScore,
+              durationMinutes: it.durationMinutes ?? null,
+              passPercent: it.passPercent ?? 50,
               order: it.order ?? ii + 1,
-              questions: it.id
-                ? examQuestionMap.get(it.id) ?? []
-                : [],
+              questions,
             });
+            
+        
             continue;
           }
-
+        
           /* ---------- LESSON ---------- */
           items.push({
             id: it.id,
@@ -128,6 +143,7 @@ export function useCourseBuilder(
             order: it.order ?? ii + 1,
           });
         }
+        
 
         result.push({
           id: s.id,
@@ -195,10 +211,13 @@ export function useCourseBuilder(
                   kind: "exam",
                   title: "New exam",
                   description: "",
-                  totalScore: 1,
+                  totalScore: 0,
+                  durationMinutes: null,
+                  passPercent: 50,
                   order: sec.items.length + 1,
                   questions: [],
-                },
+                }
+                
               ],
             }
           : sec

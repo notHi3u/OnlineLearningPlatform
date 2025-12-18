@@ -39,7 +39,13 @@ router.post(
   injectCourseId,
   canEditCourse,
   async (req, res) => {
-    const { section, title, description } = req.body;
+    const {
+      section,
+      title,
+      description,
+      durationMinutes,
+      passPercent,
+    } = req.body;
 
     const last = await Exam.find({ section })
       .sort({ order: -1 })
@@ -52,11 +58,14 @@ router.post(
       title,
       description,
       order,
+      durationMinutes: durationMinutes ?? null,
+      passPercent: passPercent ?? 50,
     });
 
     res.status(201).json(exam);
   }
 );
+
 
 /* ================= READ ================= */
 // GET /api/exams/section/:sectionId
@@ -86,18 +95,21 @@ router.get(
       .sort({ order: 1 })
       .lean();
 
-    res.json({
-      id: exam._id,
-      title: exam.title,
-      description: exam.description,
-      totalScore: exam.totalScore,
-      questions: questions.map(q => ({
-        id: q._id,
-        question: q.question,
-        order: q.order,
-        options: q.options,
-      })),
-    });
+      res.json({
+        id: exam._id,
+        title: exam.title,
+        description: exam.description,
+        totalScore: exam.totalScore,
+        durationMinutes: exam.durationMinutes,
+        passPercent: exam.passPercent,
+        questions: questions.map(q => ({
+          id: q._id,
+          question: q.question,
+          order: q.order,
+          options: q.options,
+          score: q.score,
+        })),
+      });
   }
 );
 
@@ -120,6 +132,7 @@ router.get(
         question: q.question,
         order: q.order,
         options: q.options,
+        score: q.score,
       }))
     );
   }
@@ -148,6 +161,7 @@ router.put(
         order: index + 1,
         question: q.question,
         options: q.options,
+        score: q.score ?? 1,
       }))
     );
 
@@ -168,9 +182,11 @@ router.put(
       {
         title: req.body.title,
         description: req.body.description,
+        durationMinutes: req.body.durationMinutes ?? null,
+        passPercent: req.body.passPercent ?? 50,
       },
       { new: true }
-    );
+    );    
 
     if (!exam) {
       return res.status(404).json({ message: "Not found" });

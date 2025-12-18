@@ -43,6 +43,7 @@ const EditCourse: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [forbidden, setForbidden] = useState(false);
+  const [contentValid, setContentValid] = useState(true);
 
   const isOwner =
     user?.role === "teacher" &&
@@ -306,6 +307,7 @@ const EditCourse: React.FC = () => {
           courseId={id!}
           value={content}
           onChange={setContent}
+          onValidityChange={setContentValid}
         />
 
         {/* Actions */}
@@ -328,8 +330,12 @@ const EditCourse: React.FC = () => {
               {/* SAVE */}
               <button
                 type="submit"
-                disabled={saving}
-                className="px-4 py-2 bg-indigo-600 text-white rounded-lg"
+                disabled={saving || !contentValid}
+                className={`px-4 py-2 rounded-lg text-white ${
+                  saving || !contentValid
+                    ? "bg-gray-400 cursor-not-allowed"
+                    : "bg-indigo-600 hover:bg-indigo-700"
+                }`}
               >
                 {saving ? "Saving..." : "Save changes"}
               </button>

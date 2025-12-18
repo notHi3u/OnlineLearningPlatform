@@ -5,15 +5,27 @@ import React, {
   useState,
 } from "react";
 
+/* ================= TYPES ================= */
+
 type DialogVariant = "info" | "success" | "error" | "warning";
+
+interface DialogInput {
+  name: string;                // 👈 key trả về
+  placeholder?: string;
+  defaultValue?: string;
+  required?: boolean;
+  type?: "text" | "password";
+  autoComplete?: string;
+}
 
 interface DialogState {
   open: boolean;
   title?: string;
   message?: string;
   variant?: DialogVariant;
-  input?: DialogInput;
-  onConfirm?: (value?: string) => void;
+  inputs?: DialogInput[];
+  values?: Record<string, string>;
+  onConfirm?: (values?: Record<string, string>) => void;
   onCancel?: () => void;
   confirmLabel?: string;
   cancelLabel?: string;
@@ -23,26 +35,23 @@ interface DialogOptions {
   title?: string;
   message: string;
   variant?: DialogVariant;
-  input?: DialogInput; // 👈 NEW
-  onConfirm?: (value?: string) => void;
+  inputs?: DialogInput[]; // 👈 MULTI INPUT
+  onConfirm?: (values?: Record<string, string>) => void;
   onCancel?: () => void;
   confirmLabel?: string;
   cancelLabel?: string;
 }
-
 
 interface DialogContextValue {
   showDialog: (options: DialogOptions) => void;
   hideDialog: () => void;
 }
 
-interface DialogInput {
-  placeholder?: string;
-  defaultValue?: string;
-  required?: boolean;
-}
+/* ================= CONTEXT ================= */
 
-const DialogContext = createContext<DialogContextValue | undefined>(undefined);
+const DialogContext = createContext<DialogContextValue | undefined>(
+  undefined
+);
 
 export const useDialog = () => {
   const ctx = useContext(DialogContext);
@@ -52,24 +61,29 @@ export const useDialog = () => {
   return ctx;
 };
 
-export const DialogProvider: React.FC<React.PropsWithChildren> = ({
-  children,
-}) => {
+/* ================= PROVIDER ================= */
+
+export const DialogProvider: React.FC<
+  React.PropsWithChildren
+> = ({ children }) => {
   const [state, setState] = useState<DialogState>({
     open: false,
     variant: "info",
   });
 
-  const [inputValue, setInputValue] = useState("");
-
   const showDialog = useCallback((options: DialogOptions) => {
-    setInputValue(options.input?.defaultValue || "");
+    const initialValues: Record<string, string> = {};
+    options.inputs?.forEach((i) => {
+      initialValues[i.name] = i.defaultValue || "";
+    });
+
     setState({
       open: true,
       title: options.title,
       message: options.message,
       variant: options.variant ?? "info",
-      input: options.input,
+      inputs: options.inputs,
+      values: initialValues,
       onConfirm: options.onConfirm,
       onCancel: options.onCancel,
       confirmLabel: options.confirmLabel,
@@ -79,14 +93,21 @@ export const DialogProvider: React.FC<React.PropsWithChildren> = ({
 
   const hideDialog = useCallback(() => {
     setState((prev) => ({ ...prev, open: false }));
-    setInputValue("");
   }, []);
 
   const handleConfirm = () => {
-    if (state.input?.required && !inputValue.trim()) {
-      return;
+    if (state.inputs) {
+      for (const input of state.inputs) {
+        if (
+          input.required &&
+          !state.values?.[input.name]?.trim()
+        ) {
+          return;
+        }
+      }
     }
-    state.onConfirm?.(inputValue);
+
+    state.onConfirm?.(state.values);
     hideDialog();
   };
 
@@ -116,23 +137,36 @@ export const DialogProvider: React.FC<React.PropsWithChildren> = ({
             className={`w-full max-w-md rounded-lg bg-white p-4 shadow-lg border-l-4 ${variantColor}`}
           >
             {state.title && (
-              <h2 className="mb-2 text-lg font-semibold">{state.title}</h2>
+              <h2 className="mb-2 text-lg font-semibold">
+                {state.title}
+              </h2>
             )}
 
             <p className="mb-3 text-sm text-gray-700 whitespace-pre-line">
               {state.message}
             </p>
 
-            {/* 🔥 INPUT */}
-            {state.input && (
-              <textarea
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                placeholder={state.input.placeholder}
-                rows={3}
-                className="mb-4 w-full rounded-md border px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500"
+            {/* 🔥 MULTI INPUTS */}
+            {state.inputs?.map((input) => (
+              <input
+                key={input.name}
+                type={input.type ?? "text"}
+                autoComplete={input.autoComplete}
+                placeholder={input.placeholder}
+                value={state.values?.[input.name] || ""}
+                onChange={(e) =>
+                  setState((prev) => ({
+                    ...prev,
+                    values: {
+                      ...prev.values,
+                      [input.name]: e.target.value,
+                    },
+                  }))
+                }
+                className="mb-3 w-full rounded-md border px-3 py-2 text-sm
+                           focus:ring-2 focus:ring-indigo-500"
               />
-            )}
+            ))}
 
             <div className="flex justify-end gap-2">
               {isConfirmMode ? (

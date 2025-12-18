@@ -20,17 +20,17 @@ router.get("/:id/content", authenticate, async (req, res) => {
     /* ===== PERMISSION ===== */
     let canView = false;
 
-    if (user?.role === "admin" || user?.role === "teacher") {
+    if (user?.role === "admin" || user?.role === "teacher" || user?.role === "student") {
       canView = true;
     }
 
-    if (user?.role === "student") {
-      const enrolled = await Enrollment.exists({
-        course: courseId,
-        user: user.id,
-      });
-      if (enrolled) canView = true;
-    }
+    // if (user?.role === "student") {
+    //   const enrolled = await Enrollment.exists({
+    //     course: courseId,
+    //     user: user.id,
+    //   });
+    //   if (enrolled) canView = true;
+    // }
 
     if (!canView) {
       return res.status(403).json({ message: "Permission check failed" });
@@ -76,6 +76,8 @@ router.get("/:id/content", authenticate, async (req, res) => {
         title: e.title,
         description: e.description,
         order: e.order,
+        durationMinutes: e.durationMinutes,
+        passPercent: e.passPercent
       });
     });
 
@@ -151,6 +153,8 @@ router.put(
               title: item.title,
               description: item.description,
               order: j + 1,
+              durationMinutes: item.durationMinutes,
+              passPercent: item.passPercent
             });
           }
         }

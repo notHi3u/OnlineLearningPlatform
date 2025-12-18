@@ -1,6 +1,8 @@
 import Enrollment from "../models/Enrollment.js";
 import Course from "../models/Course.js";
 import type { Types } from "mongoose";
+import LessonProgress from "../models/LessonProgress.ts";
+import UserExam from "../models/UserExam.ts";
 
 /**
  * Enroll user to course
@@ -39,24 +41,35 @@ export const enrollUser = async ({
   };
 };
 
-export const unenrollUser = async ({
+export async function unenrollUser({
   userId,
   courseId,
 }: {
   userId: string;
   courseId: string;
-}) => {
-  const result = await Enrollment.findOneAndDelete({
+}) {
+  /* 1️⃣ remove enrollment */
+  await Enrollment.deleteOne({
     user: userId,
     course: courseId,
   });
 
-  if (!result) {
-    throw new Error("Enrollment not found");
-  }
+  /* 2️⃣ remove lesson + exam progress */
+  await LessonProgress.deleteMany({
+    user: userId,
+    course: courseId,
+  });
 
-  return { message: "Unenrolled successfully" };
-};
+  /* 3️⃣ remove all exam attempts */
+  await UserExam.deleteMany({
+    user: userId,
+    course: courseId,
+  });
+
+  return {
+    message: "Unenrolled successfully. Progress cleared.",
+  };
+}
 
 export const getEnrollmentsByUser = async (
   userId: string,

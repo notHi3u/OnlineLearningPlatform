@@ -20,6 +20,12 @@ import { useAuth } from "./store/auth";
 import AdminPendingCourses from "./pages/admin/AdminPendingCourses";
 import AdminDeniedCourses from "./pages/admin/AdminDeniedCourses";
 import AdminUsers from "./pages/admin/AdminUsers";
+import AdminUserDetail from "./pages/admin/AdminUserDetail";
+import AdminUserCreate from "./pages/admin/AdminUserCreate";
+import StudentCourses from "./pages/student/StudentCourses";
+import TakeExam from "./pages/exam/TakeExam";
+import ExamHistory from "./pages/exam/ExamHistory";
+import AdminExamHistory from "./pages/exam/AdminExamHistory";
 
 const Layout: React.FC = () => {
   const location = useLocation();
@@ -51,6 +57,15 @@ const Layout: React.FC = () => {
               element={
                 <ProtectedRoute role="student">
                   <StudentDashboard />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/student/courses"
+              element={
+                <ProtectedRoute role="student">
+                  <StudentCourses />
                 </ProtectedRoute>
               }
             />
@@ -111,6 +126,24 @@ const Layout: React.FC = () => {
               }
             />
 
+            <Route
+              path="/admin/users/:id"
+              element={
+                <ProtectedRoute role="admin">
+                  <AdminUserDetail />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/admin/users/new"
+              element={
+                <ProtectedRoute role="admin">
+                  <AdminUserCreate />
+                </ProtectedRoute>
+              }
+            />
+
             {/* COURSES – STUDENT (teacher + admin vẫn OK nếu ProtectedRoute cho phép) */}
             <Route
               path="/courses"
@@ -145,6 +178,34 @@ const Layout: React.FC = () => {
               element={
                 <ProtectedRoute role="teacher">
                   <EditCourse />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* EXAM */}
+            <Route
+              path="/exam/take/:id"
+              element={
+                <ProtectedRoute role="student">
+                  <TakeExam />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/exam/history"
+              element={
+                <ProtectedRoute role="student">
+                  <ExamHistory />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/admin/exam/history"
+              element={
+                <ProtectedRoute role="admin">
+                  <AdminExamHistory />
                 </ProtectedRoute>
               }
             />

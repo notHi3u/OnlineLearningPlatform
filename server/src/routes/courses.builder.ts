@@ -80,6 +80,8 @@ router.put(
               title: item.title,
               description: item.description,
               order: j + 1,
+              durationMinutes: item.durationMinutes,
+              passPercent: item.passPercent
             });
 
             let totalScore = 0;
@@ -92,6 +94,8 @@ router.put(
             for (let k = 0; k < questions.length; k++) {
               const q = questions[k];
 
+              const score = Number(q.score) || 1;
+
               await ExamQuestion.create({
                 exam: examDoc._id,
                 order: k + 1,
@@ -100,10 +104,11 @@ router.put(
                   text: o.text,
                   isCorrect: o.isCorrect,
                 })),
-                score: 1,
+                score, // ✅ lấy từ payload
               });
 
-              totalScore += 1;
+              totalScore += score; // ✅ cộng đúng
+
             }
 
             /* ===== UPDATE TOTAL SCORE ===== */

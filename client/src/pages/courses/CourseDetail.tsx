@@ -31,6 +31,8 @@ const CourseDetail: React.FC = () => {
   const [enrolled, setEnrolled] = useState(false);
   const [loadingEnroll, setLoadingEnroll] = useState(false);
 
+  const [contentVersion, setContentVersion] = useState(0);
+
   /* ================= LOAD COURSE ================= */
   const loadCourse = async () => {
     try {
@@ -72,7 +74,7 @@ const CourseDetail: React.FC = () => {
   user?.role === "teacher" &&
   course?.teacher?._id === user.id;
 
-  const canEnroll = user && user.role === "student";
+  const canEnroll = user && user.role === "student" || !isOwner;
 
 
   const isApproved = course?.publishStatus === "approved";
@@ -99,6 +101,8 @@ const CourseDetail: React.FC = () => {
       });
 
       setEnrolled(true);
+      setContentVersion(v => v + 1);
+
     } catch (err: any) {
       showDialog({
         title: "Error",
@@ -129,6 +133,7 @@ const CourseDetail: React.FC = () => {
       });
 
       setEnrolled(false);
+      setContentVersion(v => v + 1);
     } catch (err) {
       showDialog({
         title: "Error",
@@ -209,49 +214,47 @@ const CourseDetail: React.FC = () => {
   };
 
   const handleDeny = (id: string) => {
-      showDialog({
-        title: "Deny course",
-        message: "Please provide a reason for denial.",
-        variant: "warning",
-        input: {
+    showDialog({
+      title: "Deny course",
+      message: "Please provide a reason for denial.",
+      variant: "warning",
+      inputs: [
+        {
+          name: "reason",
           placeholder: "Reason (required)",
           required: true,
         },
-        confirmLabel: "Deny",
-        onConfirm: async (reason) => {
-          await api.put(`/admin/courses/${id}/deny`, { reason });
-          showDialog({
-            title: "Denied",
-            message: "Course has been denied.",
-            variant: "info",
-          });
-          
-          loadCourse();
-        },
-      });
-    };
+      ],
+      confirmLabel: "Deny",
+      onConfirm: async (values) => {
+        await api.put(`/admin/courses/${id}/deny`, {
+          reason: values?.reason,
+        });
+        loadCourse();
+      },
+    });    
+  };
 
     const handleRemove = (id: string) => {
       showDialog({
         title: "Remove course",
-        message: "Please provide a reason for Removal",
+        message: "Please provide a reason for removal.",
         variant: "warning",
-        input: {
-          placeholder: "Reason (required)",
-          required: true,
-        },
-        confirmLabel: "Deny",
-        onConfirm: async (reason) => {
-          await api.put(`/admin/courses/${id}/deny`, { reason });
-          showDialog({
-            title: "Remove",
-            message: "Course has been removed from public.",
-            variant: "info",
+        inputs: [
+          {
+            name: "reason",
+            placeholder: "Reason (required)",
+            required: true,
+          },
+        ],
+        confirmLabel: "Remove",
+        onConfirm: async (values) => {
+          await api.put(`/admin/courses/${id}/deny`, {
+            reason: values?.reason,
           });
-          
           loadCourse();
         },
-      });
+      });      
     };
 
     const handleDelete = (id: string) => {
@@ -461,8 +464,10 @@ const CourseDetail: React.FC = () => {
           </div>
           {/* CONTENT */}
           <CourseContent
+            key={`${course._id}-${contentVersion}`}
             courseId={course._id}
             enrolled={enrolled}
+            teacherId={course?.teacher?._id}
           />
         </div>
       </div>

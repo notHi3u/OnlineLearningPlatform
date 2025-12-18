@@ -7,12 +7,14 @@ export interface ExamOption {
   tempId: string;
   text: string;
   isCorrect: boolean;
+  
 }
 
 export interface ExamQuestion {
   tempId: string;
   question: string;
   options: ExamOption[];
+  score: number;
 }
 
 interface Props {
@@ -53,6 +55,7 @@ export default function ExamModal({
       {
         tempId: crypto.randomUUID(),
         question: "",
+        score: 1, // ✅ default 1 điểm
         options: [
           {
             tempId: crypto.randomUUID(),
@@ -65,8 +68,18 @@ export default function ExamModal({
             isCorrect: false,
           },
         ],
-      },
+      }      
     ]);
+  };
+
+  const updateQuestionScore = (qid: string, score: number) => {
+    setQuestions(qs =>
+      qs.map(q =>
+        q.tempId === qid
+          ? { ...q, score: Math.max(0, score) }
+          : q
+      )
+    );
   };
 
   const updateQuestion = (qid: string, text: string) => {
@@ -195,7 +208,7 @@ export default function ExamModal({
               className="border rounded-lg p-4 space-y-3"
             >
               {/* Question */}
-              <div className="flex gap-2">
+              <div className="flex gap-2 items-center">
                 <input
                   disabled={readOnly}
                   className="flex-1 border-b outline-none disabled:bg-transparent"
@@ -205,6 +218,22 @@ export default function ExamModal({
                     updateQuestion(q.tempId, e.target.value)
                   }
                 />
+
+                <input
+                  type="number"
+                  min={0}
+                  disabled={readOnly}
+                  value={q.score}
+                  onChange={e =>
+                    updateQuestionScore(
+                      q.tempId,
+                      Number(e.target.value)
+                    )
+                  }
+                  className="w-20 border rounded px-2 py-1 text-sm disabled:bg-gray-100"
+                  placeholder="Score"
+                />
+
 
                 {!readOnly && (
                   <button

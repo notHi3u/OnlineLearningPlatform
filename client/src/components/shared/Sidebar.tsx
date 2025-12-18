@@ -7,7 +7,6 @@ import {
   BookOpen,
   GraduationCap,
   Users,
-  Settings,
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
@@ -53,10 +52,17 @@ const MENU: MenuItem[] = [
 
   // STUDENT
   {
-    label: "My Courses",
+    label: "Enrolled Courses",
     to: "/student/courses",
     icon: <GraduationCap size={18} />,
-    roles: ["student"],
+    roles: ["student",],
+  },
+
+  {
+    label: "Exam history",
+    to: "/exam/history",
+    icon: <GraduationCap size={18} />,
+    roles: ["student",],
   },
 
   // TEACHER
@@ -65,6 +71,20 @@ const MENU: MenuItem[] = [
     to: "/teacher/courses",
     icon: <GraduationCap size={18} />,
     roles: ["teacher"],
+  },
+
+  {
+    label: "Enrolled Courses",
+    to: "/student/courses",
+    icon: <GraduationCap size={18} />,
+    roles: ["teacher"],
+  },
+
+  {
+    label: "Exam history",
+    to: "/exam/history",
+    icon: <GraduationCap size={18} />,
+    roles: ["teacher",],
   },
 
   // ADMIN COURSES (SUB MENU)
@@ -101,12 +121,14 @@ const MENU: MenuItem[] = [
     icon: <Users size={18} />,
     roles: ["admin"],
   },
+
+  // ADMIN
   {
-    label: "Settings",
-    to: "/admin/settings",
-    icon: <Settings size={18} />,
+    label: "Exam History",
+    to: "/admin/exam/history",
+    icon: <Users size={18} />,
     roles: ["admin"],
-  },
+  }
 ];
 
 const Sidebar: React.FC = () => {

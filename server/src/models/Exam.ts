@@ -25,11 +25,25 @@ const ExamSchema = new mongoose.Schema(
       trim: true,
     },
 
-    // 🔥 auto-calc từ ExamQuestion, frontend không cần quan tâm
+    // 🔥 auto-calc từ ExamQuestion
     totalScore: {
       type: Number,
       default: 0,
       min: 0,
+    },
+
+    // ⏱️ thời gian làm bài (phút), null = không giới hạn
+    durationMinutes: {
+      type: Number,
+      min: 1,
+    },
+
+    // 🎯 % điểm tối thiểu để đạt
+    passPercent: {
+      type: Number,
+      min: 0,
+      max: 100,
+      default: 50,
     },
   },
   {

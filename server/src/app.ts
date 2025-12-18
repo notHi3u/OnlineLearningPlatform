@@ -14,6 +14,9 @@ import examRoutes from "./routes/exams.ts";
 import adminCoursePublishRoutes from "./routes/admin.courses.publish.ts";
 import userRoutes from "./routes/users.ts";
 import adminUserRoutes from "./routes/admin.users.ts";
+import studentCourseRoutes from "./routes/student.courses.ts";
+import courseProgressRoutes from "./routes/course.progress.ts";
+import userExamRoutes from "./routes/user.exam.ts";
 
 const app = express();
 
@@ -41,10 +44,17 @@ app.use("/api/sections", sectionLessonRoutes);  // /sections/:id/lessons
 app.use("/api/courses", courseBuilderRoutes);   // /courses/:id/builder
 app.use("/api/courses", courseContentRoutes);
 app.use("/api/exams", examRoutes);
+app.use("/api/courses", courseProgressRoutes);
 
 // ✅ ADMIN
 app.use("/api/admin", adminCoursePublishRoutes);
 app.use("/api/users", userRoutes);          // self
 app.use("/api/admin/users", adminUserRoutes); // admin
+
+// ✅ STUDENT
+app.use("/api/student", studentCourseRoutes);
+
+//✅ EXAM
+app.use("/api/user-exams", userExamRoutes);
 
 export default app;

@@ -33,7 +33,7 @@ const TeacherCourses: React.FC = () => {
         page,
         10,
         {
-          teacherId: user.id,
+          teacher: user.id,
           ...(q ? { q } : {}),
         }
       );
