@@ -6,7 +6,14 @@ import { hashPassword, verifyPassword } from "../utils/hash.ts";
 
 const router = express.Router();
 
-// ... isStrongPassword nếu bạn có ...
+// Helper: Generate tokens
+const generateTokens = (user: any) => {
+  const payload = { sub: user._id.toString(), email: user.email, role: user.role };
+  // Access token: 1 day, Refresh token: 30 days
+  const accessToken = jwt.sign(payload, process.env.JWT_SECRET || "", { expiresIn: "1d" });
+  const refreshToken = jwt.sign(payload, process.env.JWT_SECRET || "", { expiresIn: "30d" });
+  return { accessToken, refreshToken };
+};
 
 // Register user (student)
 router.post("/signup", async (req, res) => {
@@ -21,15 +28,12 @@ router.post("/signup", async (req, res) => {
       return res.status(400).json({ message: "Missing fields" });
     }
 
-    // if (!isStrongPassword(password)) { ... }
-
     const exists = await User.findOne({ email });
     if (exists) {
       return res.status(400).json({ message: "Email already exists" });
     }
 
     const passwordHash = hashPassword(password);
-
     const user = await User.create({
       email,
       name,
@@ -37,7 +41,7 @@ router.post("/signup", async (req, res) => {
       passwordHash,
     });
 
-    const userId = user._id.toString(); // 👈 thay vì user.id
+    const userId = user._id.toString();
 
     return res.json({
       message: "Student created",
@@ -77,27 +81,72 @@ router.post("/login", async (req, res) => {
     await user.save();
   }
 
-  const userId = user._id.toString(); // 👈 dùng _id
+  const { accessToken, refreshToken } = generateTokens(user);
 
-  const token = jwt.sign(
-    {
-      sub: userId,
-      email: user.email,
-      role: user.role,
-    },
-    process.env.JWT_SECRET || "",
-    { expiresIn: "12h" }
-  );
+  // Save refresh token to DB
+  user.refreshTokens.push(refreshToken);
+  await user.save();
 
   return res.json({
-    token,
+    accessToken,
+    refreshToken,
     user: {
-      id: userId,
+      id: user._id.toString(),
       email: user.email,
       role: user.role,
       name: user.name,
     },
   });
+});
+
+// Refresh token
+router.post("/refresh-token", async (req, res) => {
+  const { refreshToken } = req.body as { refreshToken?: string };
+
+  if (!refreshToken) {
+    return res.status(400).json({ message: "Missing refresh token" });
+  }
+
+  try {
+    const payload = jwt.verify(refreshToken, process.env.JWT_SECRET || "") as any;
+    const user = await User.findById(payload.sub);
+
+    if (!user || !user.refreshTokens.includes(refreshToken)) {
+      return res.status(401).json({ message: "Invalid refresh token" });
+    }
+
+    // Remove old refresh token
+    user.refreshTokens = user.refreshTokens.filter((t) => t !== refreshToken);
+
+    // Generate new tokens
+    const tokens = generateTokens(user);
+    user.refreshTokens.push(tokens.refreshToken);
+    await user.save();
+
+    return res.json(tokens);
+  } catch {
+    return res.status(401).json({ message: "Invalid or expired refresh token" });
+  }
+});
+
+// Logout
+router.post("/logout", async (req, res) => {
+  const { refreshToken } = req.body as { refreshToken?: string };
+
+  if (refreshToken) {
+    try {
+      const payload = jwt.verify(refreshToken, process.env.JWT_SECRET || "") as any;
+      const user = await User.findById(payload.sub);
+      if (user) {
+        user.refreshTokens = user.refreshTokens.filter((t) => t !== refreshToken);
+        await user.save();
+      }
+    } catch {
+      // Token invalid, ignore
+    }
+  }
+
+  return res.json({ message: "Logged out" });
 });
 
 export default router;

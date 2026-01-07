@@ -176,11 +176,60 @@ router.get("/history/all", authenticate, async (req, res) => {
   });
   
 
+/* ================= GET EXAM STATUS ================= */
+// GET /api/user-exams/:id/status
+router.get("/:id/status", authenticate, async (req, res) => {
+    const userId = req.user!.id;
+    const examId = req.params.id;
+
+    const lastAttempt = await UserExam.findOne({
+        user: userId,
+        exam: examId,
+    })
+        .sort({ attempt: -1 })
+        .lean();
+
+    if (!lastAttempt) {
+        return res.json({ hasExam: false });
+    }
+
+    res.json({
+        hasExam: true,
+        status: lastAttempt.status,
+        attempt: lastAttempt.attempt,
+        achievedScore: lastAttempt.achievedScore,
+        totalScore: lastAttempt.totalScore,
+        passPercent: lastAttempt.passPercent,
+        submittedAt: lastAttempt.submittedAt,
+    });
+});
+
+
 /* ================= TAKE EXAM ================= */
 // GET /api/user-exams/:id/take
 router.get("/:id/take", authenticate, async (req, res) => {
     const userId = req.user!.id;
     const examId = req.params.id;
+
+    // Check if exam is already submitted
+    const existingAttempt = await UserExam.findOne({
+        user: userId,
+        exam: examId,
+        status: "submitted",
+    })
+        .sort({ attempt: -1 })
+        .lean();
+
+    if (existingAttempt) {
+        return res.json({
+            alreadySubmitted: true,
+            attempt: existingAttempt.attempt,
+            achievedScore: existingAttempt.achievedScore,
+            totalScore: existingAttempt.totalScore,
+            passPercent: existingAttempt.passPercent,
+            submittedAt: existingAttempt.submittedAt,
+        });
+    }
 
     const lastAttempt = await UserExam.findOne({
         user: userId,
@@ -334,6 +383,26 @@ router.get("/:id/active", authenticate, async (req, res) => {
     const userId = req.user!.id;
     const examId = req.params.id;
 
+    // Check if already submitted first
+    const submittedAttempt = await UserExam.findOne({
+        user: userId,
+        exam: examId,
+        status: "submitted",
+    })
+        .sort({ attempt: -1 })
+        .lean();
+
+    if (submittedAttempt) {
+        return res.json({
+            alreadySubmitted: true,
+            attempt: submittedAttempt.attempt,
+            achievedScore: submittedAttempt.achievedScore,
+            totalScore: submittedAttempt.totalScore,
+            passPercent: submittedAttempt.passPercent,
+            submittedAt: submittedAttempt.submittedAt,
+        });
+    }
+
     let userExam = await UserExam.findOne({
         user: userId,
         exam: examId,
@@ -422,6 +491,14 @@ router.get("/:id/active", authenticate, async (req, res) => {
         };
     });
 
+    // Calculate remaining time
+    const startedAt = new Date(userExam.startedAt).getTime();
+    const durationMs = (userExam.durationMinutes || 0) * 60 * 1000;
+    const elapsedMs = Date.now() - startedAt;
+    const remainingMs = Math.max(0, durationMs - elapsedMs);
+    const remainingMinutes = Math.floor(remainingMs / 60000);
+    const remainingSeconds = Math.floor((remainingMs % 60000) / 1000);
+
     res.json({
         examId,
         course: userExam.course,
@@ -430,6 +507,9 @@ router.get("/:id/active", authenticate, async (req, res) => {
         durationMinutes: userExam.durationMinutes,
         passPercent: userExam.passPercent,
         questions: resultQuestions,
+        remainingMinutes,
+        remainingSeconds,
+        startedAt: userExam.startedAt,
     });
 });
 

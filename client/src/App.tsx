@@ -12,7 +12,7 @@ import Footer from "./components/shared/Footer";
 import AdminLogin from "./pages/auth/AdminLogin";
 import CreateCourse from "./pages/courses/CreateCourse";
 import Courses from "./pages/courses/Courses";
-import Course from "./pages/courses/CourseDetail";
+import { CourseDetail } from "./pages/courses/CourseDetail";
 import TeacherCourses from "./pages/teacher/TeacherCourses";
 import EditCourse from "./pages/courses/EditCourse";
 import Sidebar from "./components/shared/Sidebar";
@@ -26,6 +26,7 @@ import StudentCourses from "./pages/student/StudentCourses";
 import TakeExam from "./pages/exam/TakeExam";
 import ExamHistory from "./pages/exam/ExamHistory";
 import AdminExamHistory from "./pages/exam/AdminExamHistory";
+import Profile from "./pages/profile/Profile";
 
 const Layout: React.FC = () => {
   const location = useLocation();
@@ -50,6 +51,16 @@ const Layout: React.FC = () => {
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<SignUp />} />
             <Route path="/adminlogin" element={<AdminLogin />} />
+
+            {/* PROFILE - All authenticated users */}
+            <Route
+              path="/profile"
+              element={
+                <ProtectedRoute>
+                  <Profile />
+                </ProtectedRoute>
+              }
+            />
 
             {/* STUDENT */}
             <Route
@@ -158,7 +169,7 @@ const Layout: React.FC = () => {
               path="/courses/:id"
               element={
                 <ProtectedRoute role="student">
-                  <Course />
+                  <CourseDetail />
                 </ProtectedRoute>
               }
             />

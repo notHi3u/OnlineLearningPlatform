@@ -1,4 +1,81 @@
+import { useEffect, useState } from "react";
+import { api } from "../../api/http";
+
+interface AdminStats {
+  totalUsers: number;
+  totalCourses: number;
+  pendingCourses: number;
+  enrollments: number;
+  usersByRole: { _id: string; count: number }[];
+  coursesByStatus: { _id: string; count: number }[];
+}
+
+interface RecentActivity {
+  users: { email: string; createdAt: string }[];
+  courses: { title: string; status: string; updatedAt: string; teacher: string }[];
+}
+
 const AdminDashboard = () => {
+  const [stats, setStats] = useState<AdminStats | null>(null);
+  const [activities, setActivities] = useState<RecentActivity | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const res = await api.get("/dashboard/admin");
+        setStats(res.data.stats);
+        setActivities(res.data.recentActivities);
+      } catch (err: any) {
+        console.error("Failed to fetch admin stats:", err);
+        setError("Failed to load dashboard data");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchStats();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="p-6">
+        <div className="animate-pulse space-y-4">
+          <div className="h-8 bg-gray-200 rounded w-1/4"></div>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="h-24 bg-gray-200 rounded"></div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-6">
+        <div className="text-red-500">{error}</div>
+      </div>
+    );
+  }
+
+  const formatTime = (dateStr: string) => {
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diff = now.getTime() - date.getTime();
+    const minutes = Math.floor(diff / 60000);
+    const hours = Math.floor(diff / 3600000);
+    const days = Math.floor(diff / 86400000);
+
+    if (minutes < 1) return "Just now";
+    if (minutes < 60) return `${minutes} min ago`;
+    if (hours < 24) return `${hours} hour${hours > 1 ? "s" : ""} ago`;
+    if (days < 7) return `${days} day${days > 1 ? "s" : ""} ago`;
+    return date.toLocaleDateString();
+  };
+
   return (
     <div className="p-6 space-y-6">
       {/* HEADER */}
@@ -11,10 +88,14 @@ const AdminDashboard = () => {
 
       {/* STATS */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <StatCard title="Total Users" value="1,248" />
-        <StatCard title="Total Courses" value="86" />
-        <StatCard title="Pending Courses" value="12" highlight />
-        <StatCard title="Enrollments" value="5,421" />
+        <StatCard title="Total Users" value={stats?.totalUsers || 0} />
+        <StatCard title="Total Courses" value={stats?.totalCourses || 0} />
+        <StatCard 
+          title="Pending Courses" 
+          value={stats?.pendingCourses || 0} 
+          highlight={!!stats?.pendingCourses && stats.pendingCourses > 0}
+        />
+        <StatCard title="Enrollments" value={stats?.enrollments || 0} />
       </div>
 
       {/* MAIN CONTENT */}
@@ -26,22 +107,18 @@ const AdminDashboard = () => {
           </h2>
 
           <ul className="space-y-3 text-sm">
-            <li className="flex justify-between">
-              <span>User <b>john@email.com</b> created</span>
-              <span className="text-gray-400">2 min ago</span>
-            </li>
-            <li className="flex justify-between">
-              <span>Course <b>React Basics</b> approved</span>
-              <span className="text-gray-400">10 min ago</span>
-            </li>
-            <li className="flex justify-between">
-              <span>User <b>teacher01</b> role updated</span>
-              <span className="text-gray-400">1 hour ago</span>
-            </li>
-            <li className="flex justify-between">
-              <span>Course <b>NodeJS API</b> denied</span>
-              <span className="text-gray-400">Yesterday</span>
-            </li>
+            {activities?.users.slice(0, 3).map((user, idx) => (
+              <li key={`user-${idx}`} className="flex justify-between">
+                <span>User <b>{user.email}</b> created</span>
+                <span className="text-gray-400">{formatTime(user.createdAt)}</span>
+              </li>
+            ))}
+            {activities?.courses.slice(0, 2).map((course, idx) => (
+              <li key={`course-${idx}`} className="flex justify-between">
+                <span>Course <b>{course.title}</b> {course.status}</span>
+                <span className="text-gray-400">{formatTime(course.updatedAt)}</span>
+              </li>
+            ))}
           </ul>
         </div>
 
@@ -70,7 +147,7 @@ const StatCard = ({
   highlight,
 }: {
   title: string;
-  value: string;
+  value: number;
   highlight?: boolean;
 }) => (
   <div
@@ -79,7 +156,7 @@ const StatCard = ({
     }`}
   >
     <p className="text-sm text-gray-500">{title}</p>
-    <p className="text-2xl font-bold mt-1">{value}</p>
+    <p className="text-2xl font-bold mt-1">{value.toLocaleString()}</p>
   </div>
 );
 

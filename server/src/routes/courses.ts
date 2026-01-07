@@ -11,6 +11,7 @@ import {
 import { canEditCourse } from "../middlewares/coursePermission.ts";
 import {authenticate, authenticateOptional} from "../middlewares/auth.ts";
 import { queryFilter } from "../utils/queryFilter.ts";
+import { getCourseStudents } from "../services/enrollment.ts";
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
@@ -315,6 +316,39 @@ router.put(
       return res
         .status(500)
         .json({ message: "Failed to set course to draft" });
+    }
+  }
+);
+
+/* ==============================
+   GET /api/courses/:courseId/students
+   teacher (owner) / admin
+================================ */
+router.get(
+  "/:courseId/students",
+  authenticate,
+  async (req: Request, res: Response) => {
+    try {
+      const { courseId } = req.params;
+      const user = req.user!;
+
+      // Get course to check ownership
+      const course = await Course.findById(courseId).select("teacher").lean();
+      if (!course) {
+        return res.status(404).json({ message: "Course not found" });
+      }
+
+      // Check permission: owner or admin
+      const isOwner = String(course.teacher) === user.id;
+      if (user.role !== "admin" && !isOwner) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const students = await getCourseStudents(courseId);
+      return res.json(students);
+    } catch (err) {
+      console.error("Failed to get course students:", err);
+      return res.status(500).json({ message: "Failed to get students" });
     }
   }
 );

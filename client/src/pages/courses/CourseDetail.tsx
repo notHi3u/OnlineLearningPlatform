@@ -4,6 +4,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "../../store/auth";
 import { useDialog } from "../../components/shared/DialogProvider";
 import CourseContent from "../../components/course/CourseContent";
+import { Users, BookOpen } from "lucide-react";
 
 interface Course {
   _id: string;
@@ -15,11 +16,25 @@ interface Course {
     name: string;
     email: string;
   };
-  isPublished: boolean; // backend dùng
+  isPublished: boolean;
   publishStatus: "draft" | "pending" | "approved" | "denied";
 }
 
-const CourseDetail: React.FC = () => {
+interface StudentData {
+  enrollmentId: string;
+  userId: string;
+  name: string;
+  email: string;
+  enrolledAt: string;
+  progress: number;
+  completedLessons: number;
+  totalLessons: number;
+  exams: any[];
+}
+
+type Tab = "content" | "students";
+
+export const CourseDetail: React.FC = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -27,11 +42,16 @@ const CourseDetail: React.FC = () => {
 
   const [course, setCourse] = useState<Course | null>(null);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<Tab>("content");
 
   const [enrolled, setEnrolled] = useState(false);
   const [loadingEnroll, setLoadingEnroll] = useState(false);
 
   const [contentVersion, setContentVersion] = useState(0);
+
+  // Students tab state
+  const [students, setStudents] = useState<StudentData[]>([]);
+  const [loadingStudents, setLoadingStudents] = useState(false);
 
   /* ================= LOAD COURSE ================= */
   const loadCourse = async () => {
@@ -64,24 +84,48 @@ const CourseDetail: React.FC = () => {
     }
   };
 
+  /* ================= LOAD STUDENTS ================= */
+  const loadStudents = async () => {
+    if (!id) return;
+    
+    setLoadingStudents(true);
+    try {
+      const res = await api.get(`/courses/${id}/students`);
+      setStudents(res.data);
+    } catch (err) {
+      console.error("Failed to load students:", err);
+    } finally {
+      setLoadingStudents(false);
+    }
+  };
+
   useEffect(() => {
     loadCourse();
     loadEnrollment();
+    loadStudents();
   }, [id]);
+
+  // Load students when switching to students tab
+  useEffect(() => {
+    if (activeTab === "students" && students.length === 0) {
+      loadStudents();
+    }
+  }, [activeTab]);
 
   /* ================= PERMISSION ================= */
   const isOwner =
-  user?.role === "teacher" &&
-  course?.teacher?._id === user.id;
+    user?.role === "teacher" &&
+    course?.teacher?._id === user.id;
 
   const canEnroll = user && user.role === "student" || !isOwner;
-
 
   const isApproved = course?.publishStatus === "approved";
   const isPending = course?.publishStatus === "pending";
   const canEdit = isOwner && !isApproved && !isPending;
 
   const isAdmin = user?.role === "admin";
+  const canViewStudents = isOwner || isAdmin;
+
   /* ================= ACTIONS ================= */
   const handleEnroll = async () => {
     if (!user) return navigate("/login");
@@ -144,7 +188,6 @@ const CourseDetail: React.FC = () => {
   };
 
   /* ================= OWNER ACTIONS ================= */
-
   const handleRequestPublish = async () => {
     if (!course) return;
 
@@ -193,7 +236,6 @@ const CourseDetail: React.FC = () => {
     });
   };
 
-
   /* ================= ADMIN ACTIONS ================= */
   const handleApprove = () => {
     showDialog({
@@ -235,46 +277,46 @@ const CourseDetail: React.FC = () => {
     });    
   };
 
-    const handleRemove = (id: string) => {
-      showDialog({
-        title: "Remove course",
-        message: "Please provide a reason for removal.",
-        variant: "warning",
-        inputs: [
-          {
-            name: "reason",
-            placeholder: "Reason (required)",
-            required: true,
-          },
-        ],
-        confirmLabel: "Remove",
-        onConfirm: async (values) => {
-          await api.put(`/admin/courses/${id}/deny`, {
-            reason: values?.reason,
-          });
-          loadCourse();
+  const handleRemove = (id: string) => {
+    showDialog({
+      title: "Remove course",
+      message: "Please provide a reason for removal.",
+      variant: "warning",
+      inputs: [
+        {
+          name: "reason",
+          placeholder: "Reason (required)",
+          required: true,
         },
-      });      
-    };
+      ],
+      confirmLabel: "Remove",
+      onConfirm: async (values) => {
+        await api.put(`/admin/courses/${id}/deny`, {
+          reason: values?.reason,
+        });
+        loadCourse();
+      },
+    });      
+  };
 
-    const handleDelete = (id: string) => {
-      showDialog({
-        title: "Delete course",
-        message: "This action cannot be undone. Delete this course?",
-        variant: "error",
-        confirmLabel: "Delete",
-        cancelLabel: "Cancel",
-        onConfirm: async () => {
-          await api.delete(`/courses/${id}`);
-          showDialog({
-            title: "Deleted",
-            message: "Course has been deleted.",
-            variant: "success",
-          });
-          navigate("/admin/courses/denied");
-        },
-      });
-    };
+  const handleDelete = (id: string) => {
+    showDialog({
+      title: "Delete course",
+      message: "This action cannot be undone. Delete this course?",
+      variant: "error",
+      confirmLabel: "Delete",
+      cancelLabel: "Cancel",
+      onConfirm: async () => {
+        await api.delete(`/courses/${id}`);
+        showDialog({
+          title: "Deleted",
+          message: "Course has been deleted.",
+          variant: "success",
+        });
+        navigate("/admin/courses/denied");
+      },
+    });
+  };
 
   /* ================= UI ================= */
   if (loading) {
@@ -329,7 +371,7 @@ const CourseDetail: React.FC = () => {
           <h1 className="text-3xl font-bold">{course.title}</h1>
 
           <div className="flex items-center gap-3">
-            {/* 🔥 STATUS BADGE */}
+            {/* STATUS BADGE */}
             {(isOwner || user?.role === "admin") && (
               <span
                 className={`px-3 py-1 rounded-full text-sm font-semibold ${
@@ -365,7 +407,7 @@ const CourseDetail: React.FC = () => {
           </p>
 
           {/* ACTIONS */}
-          <div className="pt-4 flex gap-3">
+          <div className="pt-4 flex gap-3 flex-wrap">
             {canEnroll && course.publishStatus === "approved" && (
               enrolled ? (
                 <button
@@ -460,19 +502,107 @@ const CourseDetail: React.FC = () => {
                 Set to draft
               </button>
             )}
-
           </div>
-          {/* CONTENT */}
-          <CourseContent
-            key={`${course._id}-${contentVersion}`}
-            courseId={course._id}
-            enrolled={enrolled}
-            teacherId={course?.teacher?._id}
-          />
+
+          {/* TABS */}
+          <div className="border-b mt-6">
+            <div className="flex gap-4">
+              <button
+                onClick={() => setActiveTab("content")}
+                className={`px-4 py-2 border-b-2 transition ${
+                  activeTab === "content"
+                    ? "border-indigo-600 text-indigo-600"
+                    : "border-transparent text-gray-500 hover:text-gray-700"
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <BookOpen size={18} />
+                  Content
+                </div>
+              </button>
+
+              {canViewStudents && (
+                <button
+                  onClick={() => {
+                    setActiveTab("students");
+                    if (students.length === 0) loadStudents();
+                  }}
+                  className={`px-4 py-2 border-b-2 transition ${
+                    activeTab === "students"
+                      ? "border-indigo-600 text-indigo-600"
+                      : "border-transparent text-gray-500 hover:text-gray-700"
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <Users size={18} />
+                    Students ({students.length})
+                  </div>
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* TAB CONTENT */}
+          {activeTab === "content" && (
+            <CourseContent
+              key={`${course._id}-${contentVersion}`}
+              courseId={course._id}
+              enrolled={enrolled}
+              teacherId={course?.teacher?._id}
+            />
+          )}
+
+          {activeTab === "students" && (
+            <div className="py-4">
+              {loadingStudents ? (
+                <div className="text-center py-8 text-gray-500">
+                  Loading students...
+                </div>
+              ) : students.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  No students enrolled yet
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {students.map((student) => (
+                    <div
+                      key={student.userId}
+                      className="border rounded-lg overflow-hidden"
+                    >
+                      {/* Student summary row */}
+                      <div className="flex items-center justify-between p-4 bg-gray-50">
+                        <div className="flex-1">
+                          <div className="font-medium">{student.name}</div>
+                          <div className="text-sm text-gray-500">{student.email}</div>
+                          <div className="text-sm text-gray-500 mt-1">
+                            Enrolled: {new Date(student.enrolledAt).toLocaleDateString()}
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center gap-6">
+                          <div className="text-center">
+                            <div className="text-2xl font-bold text-indigo-600">
+                              {student.progress}%
+                            </div>
+                            <div className="text-xs text-gray-500">Progress</div>
+                          </div>
+                          
+                          <div className="text-center">
+                            <div className="text-lg font-semibold text-gray-700">
+                              {student.completedLessons}/{student.totalLessons}
+                            </div>
+                            <div className="text-xs text-gray-500">Lessons</div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>
   );
 };
-
-export default CourseDetail;

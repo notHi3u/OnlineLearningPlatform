@@ -1,4 +1,64 @@
+import { useEffect, useState } from "react";
+import { api } from "../../api/http";
+
+interface TeacherStats {
+  totalCourses: number;
+  published: number;
+  pending: number;
+  draft: number;
+  totalStudents: number;
+  recentCourses: {
+    id: string;
+    title: string;
+    status: string;
+    students: number;
+  }[];
+}
+
 const TeacherDashboard = () => {
+  const [stats, setStats] = useState<TeacherStats | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const res = await api.get("/dashboard/teacher");
+        setStats(res.data);
+      } catch (err: any) {
+        console.error("Failed to fetch teacher stats:", err);
+        setError("Failed to load dashboard data");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchStats();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="p-6">
+        <div className="animate-pulse space-y-4">
+          <div className="h-8 bg-gray-200 rounded w-1/4"></div>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="h-24 bg-gray-200 rounded"></div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-6">
+        <div className="text-red-500">{error}</div>
+      </div>
+    );
+  }
+
   return (
     <div className="p-6 space-y-6">
       {/* HEADER */}
@@ -11,10 +71,14 @@ const TeacherDashboard = () => {
 
       {/* STATS */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <StatCard title="My Courses" value="8" />
-        <StatCard title="Published" value="5" />
-        <StatCard title="Pending Review" value="2" highlight />
-        <StatCard title="Total Students" value="1,342" />
+        <StatCard title="My Courses" value={stats?.totalCourses || 0} />
+        <StatCard title="Published" value={stats?.published || 0} />
+        <StatCard 
+          title="Pending Review" 
+          value={stats?.pending || 0} 
+          highlight={!!stats?.pending && stats.pending > 0}
+        />
+        <StatCard title="Total Students" value={stats?.totalStudents || 0} />
       </div>
 
       {/* MAIN */}
@@ -25,23 +89,22 @@ const TeacherDashboard = () => {
             My Courses
           </h2>
 
-          <div className="space-y-3">
-            <CourseRow
-              title="React for Beginners"
-              status="published"
-              students={420}
-            />
-            <CourseRow
-              title="Advanced NodeJS"
-              status="pending"
-              students={0}
-            />
-            <CourseRow
-              title="TypeScript Mastery"
-              status="draft"
-              students={0}
-            />
-          </div>
+          {stats?.recentCourses && stats.recentCourses.length > 0 ? (
+            <div className="space-y-3">
+              {stats.recentCourses.map((course) => (
+                <CourseRow
+                  key={course.id}
+                  title={course.title}
+                  status={course.status as "approved" | "pending" | "draft" | "denied"}
+                  students={course.students}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-gray-500">
+              No courses yet. Create your first course!
+            </div>
+          )}
         </div>
 
         {/* RIGHT */}
@@ -70,7 +133,7 @@ const StatCard = ({
   highlight,
 }: {
   title: string;
-  value: string;
+  value: number;
   highlight?: boolean;
 }) => (
   <div
@@ -89,15 +152,24 @@ const CourseRow = ({
   students,
 }: {
   title: string;
-  status: "published" | "pending" | "draft";
+  status: "approved" | "pending" | "draft" | "denied";
   students: number;
 }) => {
   const statusStyle =
-    status === "published"
+    status === "approved"
       ? "bg-green-100 text-green-700"
       : status === "pending"
       ? "bg-yellow-100 text-yellow-700"
       : "bg-gray-100 text-gray-700";
+
+  const statusLabel =
+    status === "approved"
+      ? "Published"
+      : status === "pending"
+      ? "Pending"
+      : status === "denied"
+      ? "Denied"
+      : "Draft";
 
   return (
     <div className="flex items-center justify-between border rounded-lg p-3">
@@ -111,7 +183,7 @@ const CourseRow = ({
       <span
         className={`px-2 py-1 text-xs font-semibold rounded ${statusStyle}`}
       >
-        {status}
+        {statusLabel}
       </span>
     </div>
   );

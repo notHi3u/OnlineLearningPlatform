@@ -17,6 +17,7 @@ import adminUserRoutes from "./routes/admin.users.ts";
 import studentCourseRoutes from "./routes/student.courses.ts";
 import courseProgressRoutes from "./routes/course.progress.ts";
 import userExamRoutes from "./routes/user.exam.ts";
+import dashboardRoutes from "./routes/dashboard.ts";
 
 const app = express();
 
@@ -56,5 +57,8 @@ app.use("/api/student", studentCourseRoutes);
 
 //✅ EXAM
 app.use("/api/user-exams", userExamRoutes);
+
+//✅ DASHBOARD
+app.use("/api/dashboard", dashboardRoutes);
 
 export default app;

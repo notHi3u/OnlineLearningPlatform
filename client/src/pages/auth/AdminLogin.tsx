@@ -27,9 +27,9 @@ const AdminLogin: React.FC = () => {
         role: "admin",
       });
 
-      const data = res.data;
+      const { accessToken, refreshToken, user } = res.data;
 
-      setAuth(data.user, data.token);
+      setAuth(user, accessToken, refreshToken);
       navigate("/admin/dashboard");
     } catch (err: any) {
       console.error(err);

@@ -29,11 +29,11 @@ const Login: React.FC = () => {
         role,
       });
 
-      const data = res.data;
+      const { accessToken, refreshToken, user } = res.data;
 
-      auth.setAuth(data.user, data.token);
+      auth.setAuth(user, accessToken, refreshToken);
 
-      if (data.user.role === "teacher") navigate("/teacher/dashboard");
+      if (user.role === "teacher") navigate("/teacher/dashboard");
       else navigate("/student/dashboard");
     } catch (err: any) {
       console.error(err);

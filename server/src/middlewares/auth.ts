@@ -10,10 +10,10 @@ export const authenticate = (
   next: NextFunction
 ) => {
   const auth = req.headers.authorization;
-  if (!auth) return res.sendStatus(401);
+  if (!auth) return res.status(401).json({ message: "No token provided" });
 
   const token = auth.split(" ")[1];
-  if (!token) return res.sendStatus(401);
+  if (!token) return res.status(401).json({ message: "No token provided" });
 
   try {
     const payload = jwt.verify(
@@ -28,8 +28,11 @@ export const authenticate = (
     };
 
     next();
-  } catch {
-    return res.sendStatus(401);
+  } catch (err: any) {
+    if (err.name === "TokenExpiredError") {
+      return res.status(401).json({ message: "Token expired" });
+    }
+    return res.status(401).json({ message: "Invalid token" });
   }
 };
 
