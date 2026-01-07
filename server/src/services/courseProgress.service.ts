@@ -13,11 +13,17 @@ export async function markItemCompleted({
   itemType: "lesson" | "exam";
   itemId: string;
 }) {
-  // 1️⃣ upsert progress
+  // 0️⃣ Check enrollment exists
+  const enrollment = await Enrollment.findOne({ user: userId, course: courseId });
+  if (!enrollment) {
+    throw new Error("Enrollment not found");
+  }
+
+  // 1️⃣ upsert progress with completedAt
   await LessonProgress.findOneAndUpdate(
     { user: userId, course: courseId, itemType, itemId },
-    {},
-    { upsert: true }
+    { completedAt: new Date() },
+    { upsert: true, new: true }
   );
 
   // 2️⃣ recalc

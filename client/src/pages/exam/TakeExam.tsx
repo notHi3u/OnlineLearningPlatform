@@ -173,8 +173,9 @@ export default function TakeExam() {
       variant: "warning",
     });
 
+    // Use performSubmit directly
     await performSubmit();
-  }, [questions, attempt, examId, courseId, navigate, showDialog]);
+  }, [examId, courseId, navigate, showDialog]);
 
   const performSubmit = async () => {
     if (!examId || !courseId) return;
