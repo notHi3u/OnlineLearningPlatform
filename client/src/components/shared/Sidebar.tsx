@@ -1,7 +1,8 @@
-// client/src/components/layout/Sidebar.tsx
-import React, { useState } from "react";
+// client/src/components/shared/Sidebar.tsx
+import React, { useState, useEffect } from "react";
 import { NavLink } from "react-router-dom";
 import { useAuth } from "../../store/auth";
+import { api } from "../../api/http";
 import {
   LayoutDashboard,
   BookOpen,
@@ -131,10 +132,36 @@ const MENU: MenuItem[] = [
   }
 ];
 
+// Badge component for notifications
+const Badge: React.FC<{ count: number }> = ({ count }) => {
+  if (count === 0) return null;
+  return (
+    <span className="bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center ml-2">
+      {count > 99 ? "99+" : count}
+    </span>
+  );
+};
+
 const Sidebar: React.FC = () => {
   const { user } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
   const [openMenu, setOpenMenu] = useState<string | null>(null);
+  const [pendingCourses, setPendingCourses] = useState<number>(0);
+
+  // Fetch pending courses count for admin
+  useEffect(() => {
+    if (user?.role === "admin") {
+      const fetchPendingCount = async () => {
+        try {
+          const res = await api.get("/dashboard/admin");
+          setPendingCourses(res.data.stats.pendingCourses || 0);
+        } catch (err) {
+          console.error("Failed to fetch pending courses count:", err);
+        }
+      };
+      fetchPendingCount();
+    }
+  }, [user?.role]);
 
   if (!user) return null;
 
@@ -199,6 +226,9 @@ const Sidebar: React.FC = () => {
                       <span className="flex-1 text-left">
                         {item.label}
                       </span>
+                      {item.label === "Courses" && user?.role === "admin" && (
+                        <Badge count={pendingCourses} />
+                      )}
                       <ChevronRight
                         size={14}
                         className={`transition ${opened ? "rotate-90" : ""}`}
@@ -215,7 +245,7 @@ const Sidebar: React.FC = () => {
                         to={child.to!}
                         className={({ isActive }) =>
                           `
-                          block px-3 py-2 rounded-lg text-sm
+                          flex items-center px-3 py-2 rounded-lg text-sm
                           ${
                             isActive
                               ? "bg-indigo-100 text-indigo-700"
@@ -224,7 +254,10 @@ const Sidebar: React.FC = () => {
                         `
                         }
                       >
-                        {child.label}
+                        <span className="flex-1">{child.label}</span>
+                        {child.label === "Pending Approval" && user?.role === "admin" && (
+                          <Badge count={pendingCourses} />
+                        )}
                       </NavLink>
                     ))}
                   </div>

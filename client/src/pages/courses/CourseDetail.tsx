@@ -161,30 +161,33 @@ export const CourseDetail: React.FC = () => {
   const handleUnenroll = async () => {
     showDialog({
       title: "Confirm",
-      message: "Are you sure you want to unenroll?",
+      message: "Are you sure you want to unenroll? It will remove all progress...",
       variant: "warning",
+      confirmLabel: "Unenroll",
+      cancelLabel: "Cancel",
+      onConfirm: async () => {
+        try {
+          await api.delete("/enroll", {
+            data: { userId: user?.id, courseId: id },
+          });
+
+          showDialog({
+            title: "Unenrolled",
+            message: "You have been unenrolled.",
+            variant: "info",
+          });
+
+          setEnrolled(false);
+          setContentVersion(v => v + 1);
+        } catch (err) {
+          showDialog({
+            title: "Error",
+            message: "Failed to unenroll.",
+            variant: "error",
+          });
+        }
+      },
     });
-
-    try {
-      await api.delete("/enroll", {
-        data: { userId: user?.id, courseId: id },
-      });
-
-      showDialog({
-        title: "Unenrolled",
-        message: "You have been unenrolled.",
-        variant: "info",
-      });
-
-      setEnrolled(false);
-      setContentVersion(v => v + 1);
-    } catch (err) {
-      showDialog({
-        title: "Error",
-        message: "Failed to unenroll.",
-        variant: "error",
-      });
-    }
   };
 
   /* ================= OWNER ACTIONS ================= */
